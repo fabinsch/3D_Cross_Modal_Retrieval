@@ -1,0 +1,14 @@
+.data
+data2/
+data/
+ShapeNet_example/
+.DS_Store
+.ipynb_checkpoints/
+descriptions/
+*.json
+glove.6B/
+logs/
+runs/
+models/
+descriptions/
+pointnet3/

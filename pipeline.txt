@@ -1,0 +1,10 @@
+1. clean_descriptors.py #drops special characters and saves descriptions.csv in descriptions_cleaned.csv
+
+2. check_vocabulary #to drop words with frequency < threshold
+
+3. clean_clove.py
+
+4. create_dict.py #loads all shapes with descriptions into data.jsons
+        - splits train test and val dictionaries
+
+5. NN #Takes the two lists as input

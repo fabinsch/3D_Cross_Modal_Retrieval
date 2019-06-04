@@ -1,0 +1,9 @@
+first run:
+
+rsync -razP -e ssh  --exclude='*.{png,gif}' adl4cv@char.vc.in.tum.de:ShapeNetCore_C13/  /Users/NickHarmening/adl4cv_test/
+
+second: put  include.txt in the folder
+
+third run:
+
+rsync -azP -e ssh --exclude='*.png' --exclude='*.gif' --exclude='*.json' --exclude='*jpg' --exclude='*.binvox' --include-from=/Users/NickHarmening/adl4cv_test/include.txt --exclude='*' adl4cv@char.vc.in.tum.de:/mnt/raid/davech2y/ShapeNetCore.v2/  /Users/NickHarmening/adl4cv_test/
