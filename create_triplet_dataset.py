@@ -51,7 +51,7 @@ def load_val_data(data, triplets_val):
     for key, row in data.items():
         if key in triplets_val.keys():
             triplets_shape_val.append(data[key][0])
-            #which_desc = random.randint(1, len(data[key])-1)
+            which_desc = random.randint(1, len(data[key])-1)
             #which_desc = 1
             triplets_description_val.append(data[key][which_desc])
             triplets_id_val.append(key)
