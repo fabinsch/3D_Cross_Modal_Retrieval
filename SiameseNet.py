@@ -18,7 +18,7 @@ from ndcg_scorer import ndcg_score
 from tensorboardX.writer import SummaryWriter
 
 from generate_triplets import generate_train_triplets, generate_val_triplets
-from create_triplet_dataset import load_train_data, load_val_data, load_val_samples
+from create_triplet_dataset import load_train_data, load_val_data
 
 import torch.optim as optim
 
@@ -31,6 +31,9 @@ class SiameseNet(nn.Module):
         self.hidden = (torch.randn(2, batch_size, 100), torch.randn(2, batch_size, 100))
         self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2)
         self.linear = nn.Linear(100, 128)
+
+        self.batch_size = batch_size
+
 
     def forward(self, x, batch_size):
         t0 = time.time()
@@ -90,9 +93,6 @@ class pointcloudDataset(Dataset):
         if mode=='val':
             self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data, d_data)
 
-        if mode=='ret':
-            self.objects_shape, self.objects_description, self.train_IDs = load_val_samples(self.data, d_data)
-
         self.root_dir = root_dir
         
         # define dict containing GloVe embeddings
@@ -146,10 +146,13 @@ class pointcloudDataset(Dataset):
             d_vector = pad_vector
         return [points, d_vector]
 
-def train(net, num_epochs, margin, lr, batch_size, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir):
+def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir):
     writer = SummaryWriter(comment=writer_suffix)  # comment is a suffix, automatically names run with date+suffix
     optimizer = optim.Adam(net.parameters(), lr)
     criterion = TripletLoss(margin=margin)
+
+    batch_size = self.batch_size
+    
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         net.train()
         running_loss = 0.0
@@ -325,45 +328,6 @@ def val(net, margin,batch_size, data_dir_val, writer_suffix, working_dir, class_
     writer.add_embedding(mat=out3, tag='overall_embedding', metadata=tags)
     # close tensorboard writer
     writer.close()
-
-def retrieval(net, batch_size, data_dir_val, working_dir):
-    d_val_samples = generate_val_triplets(data_dir_val)
-    val_data = pointcloudDataset(d_data=d_val_samples, json_data=data_dir_val, root_dir=working_dir, mode='ret')
-    valloader = DataLoader(val_data, batch_size=batch_size,
-                           shuffle=False)
-    #
-    print("Number of validation triplets:", int(len(val_data) / 2))
-    net.eval()
-    #
-    with torch.no_grad():
-        shape = np.zeros((batch_size, 128, 1))
-        description = np.zeros((batch_size, 128, 1))
-        for data in valloader:
-            if len(data[0]) % batch_size != 0:
-                break
-            output_shape, output_desc = net(data, batch_size)
-            shape = np.vstack((shape, np.asarray(output_shape)))
-            description = np.vstack((description, np.asarray(output_desc)))
-
-    shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
-    description = description[batch_size:, :, :].reshape(len(description) - batch_size, np.shape(shape[1])[0])
-
-    # %%
-    # create ground truth and prediction list
-    k = 5  # define the rank of retrieval measure
-
-    # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
-    distances, indices = nbrs.kneighbors(description)
-
-    y_true = []
-    y_pred = []
-    y_pred2 = [-1] * len(indices)
-    for i, ind in enumerate(indices):
-        print(i, indices[i])
-        y_true.append(i)
-        y_pred.append(indices[i])
-    return y_true, y_pred, list(d_val_samples.keys()), shape, description
 
 if __name__ == '__main__':
     ###############################################
