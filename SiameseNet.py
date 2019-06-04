@@ -27,19 +27,20 @@ import torch.optim as optim
 class SiameseNet(nn.Module):
     def __init__(self, batch_size):
         super(SiameseNet, self).__init__()
+        self.device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
         self.pointNet = pointnet2.PointNet2ClsSsg()
-        self.hidden = (torch.randn(2, batch_size, 100), torch.randn(2, batch_size, 100))
-        self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2)
-        self.linear = nn.Linear(100, 128)
+        self.hidden = (torch.randn(2, batch_size, 100).to(self.device), torch.randn(2, batch_size, 100).to(self.device))
+        self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2).to(self.device)
+        self.linear = nn.Linear(100, 128).to(self.device)
 
         self.batch_size = batch_size
 
 
     def forward(self, x, batch_size):
         t0 = time.time()
-        x_shape = self.pointNet(x[0])
+        x_shape = self.pointNet(x[0]).to(self.device)
         t_fp_shape = time.time() - t0
-        description = x[1]
+        description = x[1].to(self.device)
         out, hidden = self.lstm(description.permute(1,0,2), self.hidden)
 
         out = self.linear(out[-1])
@@ -98,6 +99,7 @@ class pointcloudDataset(Dataset):
 
 
         self.root_dir = root_dir
+        self.device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
         
         # define dict containing GloVe embeddings
         self.embeddings_index = dict()
@@ -148,9 +150,10 @@ class pointcloudDataset(Dataset):
         else:
             pad_vector = torch.tensor(d_vector)
             d_vector = pad_vector
-        return [points, d_vector]
+        return [points.to(self.device), d_vector.to(self.device)]
 
 def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir):
+    
     writer = SummaryWriter(comment=writer_suffix)  # comment is a suffix, automatically names run with date+suffix
     optimizer = optim.Adam(net.parameters(), lr)
     criterion = TripletLoss(margin=margin)
