@@ -12,3 +12,7 @@ runs/
 models/
 descriptions/
 pointnet3/
+images/
+data_clean/
+__pycache__/
+4e5f18d35df43389aea313f389e6b76c7877cf71
