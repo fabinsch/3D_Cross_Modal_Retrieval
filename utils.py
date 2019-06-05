@@ -105,18 +105,15 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, n
     d_vector2 = torch.from_numpy(d_vector2).type(torch.FloatTensor)
     with torch.no_grad():
         _, description = net([points, d_vector2],batch_size)
-        _, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir)
+        _, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir, print_nn=False)
 
     k = 5  # define the rank of retrieval measure
 
     #description = description[batch_size:, :, :].reshape(len(description), np.shape(description[1])[0])
     ## get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape.cpu)  # check that nbrs are sorted
-    distances, indices = nbrs.kneighbors(np.asarray(description.cpu()).squeeze(2)) #description of sentence
+    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    _, indices = nbrs.kneighbors(np.asarray(description.cpu()).squeeze(2)) #description of sentence
 
-
-    with open(data_dir_val, 'r') as fp:
-        data_val = json.load(fp)
     with open(class_dir, 'r') as fp:
         data_class = json.load(fp)
     import matplotlib.pyplot as plt
@@ -127,7 +124,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, n
     print("Description:", sentence)
 
     for j in range(num_KNN):
-        ID = ids[y_pred[0][j]]
+        ID = ids[indices[0][j]]
         class_name = data_class[ID]
         name = str('images/' + class_name + '/' + ID + '/models/model_normalized.png')
         img = Image.open(name)

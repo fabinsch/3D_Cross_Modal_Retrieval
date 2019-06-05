@@ -336,7 +336,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
     writer.add_embedding(mat=out3, tag='overall_embedding', metadata=tags)
     # close tensorboard writer
     writer.close()
-def retrieval(net, data_dir_val, working_dir):
+def retrieval(net, data_dir_val, working_dir,print_nn=False):
     batch_size = net.batch_size
     d_val_samples = generate_val_triplets(data_dir_val)
     val_data = pointcloudDataset(d_data=d_val_samples, json_data=data_dir_val, root_dir=working_dir, mode='ret')
@@ -370,8 +370,10 @@ def retrieval(net, data_dir_val, working_dir):
     y_true = []
     y_pred = []
     y_pred2 = [-1] * len(indices)
+
     for i, ind in enumerate(indices):
-        print(i, indices[i])
+        if (print_nn):
+            print(i, indices[i])
         y_true.append(i)
         y_pred.append(indices[i])
     return y_true, y_pred, list(d_val_samples.keys()), shape, description
