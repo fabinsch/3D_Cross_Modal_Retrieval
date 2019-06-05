@@ -126,8 +126,6 @@ class pointcloudDataset(Dataset):
         # add description and convert to 50 dim vector GloVe
         d_vector = []
         i = 0
-        clipping_length = 20
-
         clipping_length = 20 #TODO Increase
         #t0=time.time()
 
@@ -264,7 +262,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
             if len(data[0]) % batch_size != 0:
                 break
             output_shape, output_desc = net(data,batch_size)
-            loss = criterion(output_shape, output_desc, batch_size, margin)
+            #loss = criterion(output_shape, output_desc, batch_size, margin)
             shape = np.vstack((shape, np.asarray(output_shape)))
             description = np.vstack((description, np.asarray(output_desc)))
 
