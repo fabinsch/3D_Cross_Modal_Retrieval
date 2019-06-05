@@ -353,7 +353,7 @@ def retrieval(net, data_dir_val, working_dir):
             if len(data[0]) % batch_size != 0:
                 break
             output_shape, output_desc = net(data, batch_size)
-            shape = np.vstack((shape, np.asarray(output_shape)))
+            shape = np.vstack((shape, np.asarray(output_shape.cpu())))
             description = np.vstack((description, np.asarray(output_desc)))
 
     shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
