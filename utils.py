@@ -111,7 +111,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, n
 
     #description = description[batch_size:, :, :].reshape(len(description), np.shape(description[1])[0])
     ## get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape.cpu)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(np.asarray(description.cpu()).squeeze(2)) #description of sentence
 
 
