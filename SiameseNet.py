@@ -262,9 +262,11 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
             if len(data[0]) % batch_size != 0:
                 break
             output_shape, output_desc = net(data,batch_size)
+
             #loss = criterion(output_shape, output_desc, batch_size, margin)
-            shape = np.vstack((shape, np.asarray(output_shape)))
-            description = np.vstack((description, np.asarray(output_desc)))
+            shape = np.vstack((shape, np.asarray(output_shape.cpu())))
+            description = np.vstack((description, np.asarray(output_desc.cpu())))
+
 
     # reshape output predictions for kNN
     shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
@@ -352,7 +354,7 @@ def retrieval(net, data_dir_val, working_dir):
                 break
             output_shape, output_desc = net(data, batch_size)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
-            description = np.vstack((description, np.asarray(output_desc)))
+            description = np.vstack((description, np.asarray(output_desc.cpu())))
 
     shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
     description = description[batch_size:, :, :].reshape(len(description) - batch_size, np.shape(shape[1])[0])
