@@ -52,6 +52,7 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
 
 
 def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, num_KNN):
+    device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     tokens = sentence.lower().split()
     batch_size = net.batch_size
     with open('vocabulary_clean.json', 'r') as fp:
