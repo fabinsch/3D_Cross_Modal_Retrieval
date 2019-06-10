@@ -325,11 +325,13 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
         if images:
             name = str('images/' + class_name + '/' + keys[i] + '/models/model_normalized.png')
             img = Image.open(name)
-            img = img.convert("RGB") #in this step we drop the alpha channel and the background changes from white to black
+            img.load()  # required for png.split()
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])  # 3 is the alpha channel
             if i ==0:
-                label_img = trans(img).unsqueeze(0)
+                label_img = trans(background).unsqueeze(0)
             else:
-                label_img = torch.cat((label_img,trans(img).unsqueeze(0)),0)
+                label_img = torch.cat((label_img,trans(background).unsqueeze(0)),0)
 
     if images:
         writer.add_embedding(mat=out[0::2],label_img=label_img, tag='shape_val', metadata=tags)
