@@ -19,8 +19,10 @@ from tensorboardX.writer import SummaryWriter
 
 from generate_triplets import generate_train_triplets, generate_val_triplets
 from create_triplet_dataset import load_train_data, load_val_data, load_val_samples
+from PIL import Image
 
 import torch.optim as optim
+import torchvision.transforms as transforms
 
 #
 
@@ -241,7 +243,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     print('Finished Training')
     return net
 
-def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
+def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images=False):
     d_val_triplets = generate_val_triplets(data_dir_val)
     batch_size = net.batch_size
     writer = SummaryWriter(comment=writer_suffix)
@@ -300,11 +302,8 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
     precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
                                                                          average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
     print('precision:', precision)
-    print('recall:', recall)
-    print('fscore:', fscore)
-    # print(recall)
-    # print(fscore)
-    # print(support)
+    #print('recall:', recall)
+    #print('fscore:', fscore)
 
     ndcg = ndcg_score(y_true, y_pred, k=k)
     print('NDCG:', ndcg)
@@ -319,9 +318,23 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir):
     with open(class_dir, 'r') as fp:
         class_dict = json.load(fp)
     keys = list(d_val_triplets.keys())
+    trans = transforms.ToTensor()
     for i in range(int(len(out) / 2)):
-        tags.append(class_dict[keys[i]])
-    writer.add_embedding(mat=out[0::2], tag='shape_val', metadata=tags)
+        class_name = class_dict[keys[i]]
+        tags.append(class_name)
+        if images:
+            name = str('images/' + class_name + '/' + keys[i] + '/models/model_normalized.png')
+            img = Image.open(name)
+            img = img.convert("RGB") #in this step we drop the alpha channel and the background changes from white to black
+            if i ==0:
+                label_img = trans(img).unsqueeze(0)
+            else:
+                label_img = torch.cat((label_img,trans(img).unsqueeze(0)),0)
+
+    if images:
+        writer.add_embedding(mat=out[0::2],label_img=label_img, tag='shape_val', metadata=tags)
+    else:
+        writer.add_embedding(mat=out[0::2], tag='shape_val', metadata=tags)
     description = torch.from_numpy(description).type(torch.FloatTensor)
     out2 = torch.cat((description.data, torch.ones(len(description), 1)), 1)
     writer.add_embedding(mat=out2[0::2], tag='description_val', metadata=tags)
