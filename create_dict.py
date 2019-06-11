@@ -202,7 +202,7 @@ def objects_per_class(class_dict):
             class_occ[c]=1
     print(class_occ)
 
-def create_dictionary(input_folder, max_elements_per_class, suffix):
+def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_object):
 # function to convert the obj data to ply and save as json file
     d = {}
     working_dir = os.getcwd()
@@ -227,10 +227,10 @@ def create_dictionary(input_folder, max_elements_per_class, suffix):
                    pass
                else:
                    file_path=data_dir+'/'+subdir+'/'+object+'/models/model_normalized.obj'
-                   n = 1000
+                   
                    if os.path.isfile(file_path):
                        # Next line samples a nx6 matrix, the matrix gets reshaped to a vector, and is then saved as a first tuple in a list
-                       d[object]=[tuple(np.reshape(convert_and_sample(file_path, n, write=False, ret=True), (n * 6,)))]
+                       d[object]=[tuple(np.reshape(convert_and_sample(file_path, points_per_object, write=False, ret=True), (points_per_object * 6,)))]
                        print('success:', object, subdir,'#', counter+1)
                        class_dict[object] = subdir
                    else:
