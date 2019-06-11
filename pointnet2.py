@@ -326,10 +326,10 @@ class PointNet2ClsSsg(nn.Module):
         self.sa3 = PointNetSetAbstraction(None, None, None, 256 + 3, [256, 512, 1024], True)
         self.fc1 = nn.Linear(1024, 512)
         self.bn1 = nn.BatchNorm1d(512)
-        self.drop1 = nn.Dropout(0)
+        self.drop1 = nn.Dropout(0.2)
         self.fc2 = nn.Linear(512, 256)
         self.bn2 = nn.BatchNorm1d(256)
-        self.drop2 = nn.Dropout(0)
+        self.drop2 = nn.Dropout(0.2)
         self.fc3 = nn.Linear(256, 128)
     
     def forward(self, xyz):
