@@ -326,6 +326,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
             name = str('images/' + class_name + '/' + keys[i] + '/models/model_normalized.png')
             img = Image.open(name)
             img.load()  # required for png.split()
+            img.resize((50,50),Image.ANTIALIAS)
             background = Image.new("RGB", img.size, (255, 255, 255))
             background.paste(img, mask=img.split()[3])  # 3 is the alpha channel
             if i ==0:
