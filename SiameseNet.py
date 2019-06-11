@@ -230,7 +230,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                     break
                 output_shape, output_desc = net(data, batch_size)
                 loss_val = criterion(output_shape, output_desc, batch_size, margin)
-                val_loss_epoch += loss_val.detach().item()
+                val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
             #                description = np.vstack((description, np.asarray(output_desc)))
