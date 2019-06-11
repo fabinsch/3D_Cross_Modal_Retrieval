@@ -200,8 +200,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
             optimizer.step()
             # print statistics
-            running_loss += loss.item()
-            loss_epoch += loss.item()
+            running_loss += loss.detach().item()
+            loss_epoch += loss.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 print('[%d, %5d] loss: %.3f' %
