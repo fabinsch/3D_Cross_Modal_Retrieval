@@ -168,7 +168,7 @@ def convert_and_sample(path, n=1000, write=False, ret=True):
     w = 1 - (u + v)
     
     result_xyz = (v1_xyz * u) + (v2_xyz * v) + (v3_xyz * w)
-
+    result_xyz = result_xyz.round(5)
     result_rgb = (v1_rgb * u) + (v2_rgb * v) + (v3_rgb * w)
     result_rgb = result_rgb.astype(np.uint8)
     
