@@ -287,10 +287,12 @@ def _get_anchor_negative_triplet_mask(pairwise_dist):
     else:
         
         sys.exit('batchsize not even..aborting')
+                  
+        
     
     return mask
 
-def batch_hard_triplet_loss(embeddings, margin, squared=False):
+def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     """Build the triplet loss over a batch of embeddings.
 
     For each anchor, we get the hardest positive and hardest negative to form a triplet.
@@ -326,7 +328,12 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False):
 
     # We add the maximum value in each row to the invalid negatives (to be able to apply min)
     max_anchor_negative_dist, _ = torch.max(pairwise_dist, dim=1, keepdim=True)
-    anchor_negative_dist = pairwise_dist + max_anchor_negative_dist * mask_anchor_negative
+    
+    if rand==False:
+        anchor_negative_dist = pairwise_dist + max_anchor_negative_dist * mask_anchor_negative
+    else:
+        anchor_negative_dist = mask_anchor_negative + torch.rand(mask_anchor_negative.shape)
+        
 
     # shape (batch_size,)
     hardest_negative_dist, hardest_negative_ind  = torch.min(anchor_negative_dist, dim=1, keepdim=True)
@@ -381,7 +388,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t0 = time.time()
             embeddings = torch.cat((x_shape.squeeze(), x_desc.squeeze()))
             #m_distance = _pairwise_distances(embeddings)
-            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False)
+            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False)
             #t_elapsed_hard_neg = time.time() - t0
             #print(t_elapsed_hard_neg)
 
@@ -431,20 +438,18 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                     break
                 output_shape, output_desc = net(data, batch_size)
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
-                hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False)
+                hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
                 loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)
                 val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
             #                description = np.vstack((description, np.asarray(output_desc)))
-            print(len(val_data))
-            print(len(val_data) % batch_size)
             
             if (len(val_data) % batch_size) == len(val_data):
                 den = 0
             else:
-                den = len(val_data) % batch_size
-            print(len(val))
+                den = (len(val_data) % batch_size)
+            
             writer.add_scalar('Val loss per epoch', val_loss_epoch / (len(val_data) - den),
                               epoch)
             print("Validation Loss:", val_loss_epoch / (len(val_data) - den))
