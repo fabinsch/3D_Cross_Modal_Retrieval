@@ -1,6 +1,45 @@
 import pandas as pd
+from pylanguagetool import api
+
+'''
+run in command line the following to start local server
+
+java -cp languagetool-server.jar org.languagetool.server.HTTPServer --port 8081
+
+'''
+
+# test language tool
+    
+def check_language(se='sentence'):
+    #global corrected
+    
+    LT_corr = api.check(se, api_url='http://localhost:8081/v2/', lang='en-US', disabled_rules='UPPERCASE_SENTENCE_START')
+    #print(LT_corr['matches'])
+    
+    '''
+    ignore typeName
+    Hint -> corrects context, redundancy , ADJECTIVE_IN_ATTRIBUTE
+    MORFOLOGIK_RULE_EN_US
+    PHRASE_REPETITION
+    
+    '''
+    if len(LT_corr['matches'])>0:
+        m = LT_corr['matches'][0]
+        #print(m['sentence'][m['offset']])
+        #print(m['replacements']['value'])
+        #print(se[:m['offset']]+se[m['offset']:m['offset']+m['length']].replace(m['sentence'][m['offset']:m['offset']+m['length']], m['replacements'][0]['value'])+se[m['offset']+m['length']:])
+        c_sentence = se[:m['offset']]+se[m['offset']:m['offset']+m['length']].replace(m['sentence'][m['offset']:m['offset']+m['length']], m['replacements'][0]['value'])+se[m['offset']+m['length']:]
+    #        if m['contextForSureMatch']==1:
+    #            print(se[:m['offset']]+se[m['offset']:m['offset']+m['length']].replace(m['sentence'][m['offset']:m['offset']+m['length']], m['replacements'][0]['value'])+se[m['offset']+m['length']:])
+        corrected = check_language(c_sentence)
+            
+        return corrected
+    else:
+        return se
+
+
 descriptions = pd.read_csv('descriptions/descriptions.csv',  encoding='ISO-8859-1',sep=',', error_bad_lines=False, header=None, skiprows=1)
-csv_file = open("descriptions/descriptions_cleaned.csv", "w")
+csv_file = open("descriptions/descriptions_cleaned_LT.csv", "w")
 csv_file.write('model_id,synset_id,description \n')
 
 for index, row in descriptions.iterrows(): #for iterating
@@ -27,8 +66,16 @@ for index, row in descriptions.iterrows(): #for iterating
     s = s.replace('=', ' ')
     s = s.replace('<', ' ')
     s = s.replace('>', ' ')
-    s = s.replace('&', ' ')
-    s = str(str(row[0]) + ', '+  str(row[1]) +', ' + s + '\n').lower()
+    se = s.replace('&', ' ')
+    
+    #print(se)
+    c_sentence = check_language(se)
+    #print(c_sentence)
+    #print('')
+    
+    s = str(str(row[0]) + ', '+  str(row[1]) +', ' + c_sentence + '\n').lower()
     csv_file.write(s)
+    
+
 
 csv_file.close()
