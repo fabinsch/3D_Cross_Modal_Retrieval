@@ -169,8 +169,8 @@ class pointcloudDataset(Dataset):
 #            self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data, d_data)
             self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data)
 
-        if mode=='ret':
-            self.objects_shape, self.objects_description, self.train_IDs = load_val_samples(self.data, d_data)
+        #if mode=='ret':
+            #self.objects_shape, self.objects_description, self.train_IDs = load_val_samples(self.data, d_data)
 
 
         self.root_dir = root_dir
@@ -429,7 +429,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
         # print("Number of validation triplets:", int(len(val_data)/2))
         net.eval()
-        print('Doing Evaluation with', len(val_data) / 2, 'validation triplets')
+        print('Doing Evaluation with', len(val_data), 'validation triplets')
 
         with torch.no_grad():
             #            shape=np.zeros((batch_size,128,1))
@@ -468,9 +468,9 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
 #    val_data = pointcloudDataset(d_data=d_val_triplets, json_data=data_dir_val, root_dir=working_dir, mode='val')
     val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='val')
     valloader = DataLoader(val_data, batch_size=batch_size,
-                                shuffle=False)
+                                shuffle=False) #TODO must be False
     #
-    print("Number of validation triplets:", int(len(val_data)/2))
+    print("Number of validation triplets:", int(len(val_data)))
     net.eval()
     print('Doing Evaluation')
     #
@@ -497,8 +497,8 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
     k = 1  # define the rank of retrieval measure
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape[0::2])  # check that nbrs are sorted
-    distances, indices = nbrs.kneighbors(description[0::2])
+    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    distances, indices = nbrs.kneighbors(description)
 
     y_true = []
     y_pred = []
@@ -537,7 +537,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
         class_dict = json.load(fp)
     keys = val_data.train_IDs
     trans = transforms.ToTensor()
-    for i in range(int(len(out) / 2)):
+    for i in range(int(len(out))):
         class_name = class_dict[keys[i]]
         tags.append(class_name)
         if images:
@@ -553,31 +553,32 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
                 label_img = torch.cat((label_img,trans(background).unsqueeze(0)),0)
 
     if images:
-        writer.add_embedding(mat=out[0::2],label_img=label_img, tag='shape_val', metadata=tags)
+        writer.add_embedding(mat=out,label_img=label_img, tag='shape_val', metadata=tags)
     else:
-        writer.add_embedding(mat=out[0::2], tag='shape_val', metadata=tags)
+        writer.add_embedding(mat=out, tag='shape_val', metadata=tags)
     description = torch.from_numpy(description).type(torch.FloatTensor)
     out2 = torch.cat((description.data, torch.ones(len(description), 1)), 1)
-    writer.add_embedding(mat=out2[0::2], tag='description_val', metadata=tags)
-    out3 = torch.cat((out[0::2], out2[0::2]), 0)
+    writer.add_embedding(mat=out2, tag='description_val', metadata=tags)
+    out3 = torch.cat((out, out2), 0)
     tags = []
 
-    for i in range(int(len(out3) / 2)):
+    for i in range(int(len(out3)/2)):
         tags.append(str('shape'))  # + str(i)))
-    for i in range(int(len(out3) / 2)):
+    for i in range(int(len(out3)/2)):
         tags.append(str('descr'))  # + str(i)))
 
     writer.add_embedding(mat=out3, tag='overall_embedding', metadata=tags)
     # close tensorboard writer
     writer.close()
+
 def retrieval(net, data_dir_val, working_dir,print_nn=False):
     batch_size = net.batch_size
-    d_val_samples = generate_val_triplets(data_dir_val)
-    val_data = pointcloudDataset(d_data=d_val_samples, json_data=data_dir_val, root_dir=working_dir, mode='ret')
+    #d_val_samples = generate_val_triplets(data_dir_val)
+    val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='val')
     valloader = DataLoader(val_data, batch_size=batch_size,
                            shuffle=False)
     #
-    print("Number of validation triplets:", int(len(val_data) / 2))
+    print("Number of validation triplets:", int(len(val_data)))
     net.eval()
     #
     with torch.no_grad():
@@ -610,7 +611,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
             print(i, indices[i])
         y_true.append(i)
         y_pred.append(indices[i])
-    return y_true, y_pred, list(d_val_samples.keys()), shape, description
+    return y_true, y_pred, list(val_data.train_IDs), shape, description
 
 if __name__ == '__main__':
     
