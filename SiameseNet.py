@@ -561,9 +561,9 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
     out3 = torch.cat((out, out2), 0)
     tags = []
 
-    for i in range(int(len(out3))):
+    for i in range(int(len(out3)/2)):
         tags.append(str('shape'))  # + str(i)))
-    for i in range(int(len(out3))):
+    for i in range(int(len(out3)/2)):
         tags.append(str('descr'))  # + str(i)))
 
     writer.add_embedding(mat=out3, tag='overall_embedding', metadata=tags)
