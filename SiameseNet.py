@@ -307,6 +307,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     Returns:
         triplet_loss: scalar tensor containing the triplet loss
     """
+    device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     # Get the pairwise distance matrix
     pairwise_dist = _pairwise_distances(embeddings, squared=squared)
 
@@ -332,7 +333,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     if rand==False:
         anchor_negative_dist = pairwise_dist + max_anchor_negative_dist * mask_anchor_negative
     else:
-        anchor_negative_dist = mask_anchor_negative + torch.rand(mask_anchor_negative.shape)
+        anchor_negative_dist = mask_anchor_negative + torch.rand(mask_anchor_negative.shape).to(device)
         
 
     # shape (batch_size,)
@@ -402,8 +403,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t_elapsed_bp = time.time() - t0
             # print('backward:',t_elapsed_bp,'s')
 
-            if i_batch % print_batch ==0 and i_batch != 0:
-                plot_grad_flow(net.named_parameters())
+            #if i_batch % print_batch ==0 and i_batch != 0:
+             #   plot_grad_flow(net.named_parameters())
 
             optimizer.step()
             # print statistics
