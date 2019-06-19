@@ -65,8 +65,8 @@ class SiameseNet(nn.Module):
         self.hidden = (torch.randn(2, batch_size, 100).to(self.device), torch.randn(2, batch_size, 100).to(self.device))
         self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2).to(self.device)
         self.linear = nn.Linear(100, 128).to(self.device)
-
         self.batch_size = batch_size
+        self.fc_c = nn.Linear(128, 13)
 
 
     def forward(self, x, batch_size):
@@ -81,7 +81,10 @@ class SiameseNet(nn.Module):
         #print('fp_s:', t_fp_shape)
         #print('fp_d:', t_fp_desc)
 
-        return x_shape, out.reshape(batch_size,128,1)
+        desc_pred = nn.functional.softmax(self.fc_c(out),dim=1)  # TODO make sure we use the same weights as for shape
+        shape_pred = nn.functional.softmax(self.fc_c(x_shape.squeeze(2)),dim=1)
+        return x_shape, out.reshape(batch_size,128,1), shape_pred, desc_pred
+
     
 class TripletLoss(nn.Module):
     """
@@ -223,7 +226,7 @@ class pointcloudDataset(Dataset):
         else:
             pad_vector = torch.tensor(d_vector)
             d_vector = pad_vector
-        return [points.to(self.device), d_vector.to(self.device)]
+        return [points.to(self.device), d_vector.to(self.device), self.train_IDs[idx]]
     
 def _pairwise_distances(embeddings, squared=False):
     """Compute the 2D matrix of distances between all the embeddings.
@@ -347,7 +350,23 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
 
     return hardest_negative_ind
 
-def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir):
+
+def classification_loss(x, shape_pred, desc_pred, class_dir):
+    ids = list(x[2])
+    with open(class_dir, 'r') as fp:
+        class_dict = json.load(fp)
+    with open('number_dict.json', 'r') as fp:
+        number_dict = json.load(fp)
+
+    lables = torch.zeros(shape_pred.shape[0])
+    for i, id in enumerate(ids):
+        lables[i] = number_dict[class_dict[id]]
+    loss = nn.functional.cross_entropy(shape_pred, lables.long()) + nn.functional.cross_entropy(desc_pred, lables.long())
+
+    return loss
+
+
+def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir):
     
     writer = SummaryWriter(comment=writer_suffix)  # comment is a suffix, automatically names run with date+suffix
     optimizer = optim.Adam(net.parameters(), lr)
@@ -382,19 +401,21 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 break
             # forward + backward + optimize
             #t0 = time.time()
-            x_shape, x_desc = net(sample_batched,batch_size)
+            x_shape, x_desc, shape_pred, desc_pred = net(sample_batched,batch_size)
             #t_elapsed_fp = time.time() - t0
             # print('forward :',t_elapsed_fp,'s')
             
             #t0 = time.time()
             embeddings = torch.cat((x_shape.squeeze(), x_desc.squeeze()))
             #m_distance = _pairwise_distances(embeddings)
-            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False)
+            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
             #t_elapsed_hard_neg = time.time() - t0
             #print(t_elapsed_hard_neg)
 
             #t0 = time.time()
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
+
+            loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dir)
+            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_cl
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -437,10 +458,11 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             for data in valloader:
                 if len(data[0]) % batch_size != 0:
                     break
-                output_shape, output_desc = net(data, batch_size)
+                output_shape, output_desc, shape_pred, desc_pred = net(data, batch_size)
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
-                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)
+                loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dir)
+                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_cl
                 val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
@@ -481,7 +503,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc = net(data,batch_size)
+            output_shape, output_desc, shape_pred, desc_pred = net(data,batch_size)
 
             #loss = criterion(output_shape, output_desc, batch_size, margin)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
@@ -516,11 +538,12 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
                 if s == [y_true[i]]:
                     y_pred2[i] = s
                     break
-
+    else:
+        y_pred2 = y_pred
     precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
                                                                          average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
     print('precision:', precision)
-    #print('recall:', recall)
+    print('recall:', recall)
     #print('fscore:', fscore)
 
     ndcg = ndcg_score(y_true, y_pred, k=k)
@@ -587,7 +610,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc = net(data, batch_size)
+            output_shape, output_desc, shape_pred, desc_pred = net(data, batch_size)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
             description = np.vstack((description, np.asarray(output_desc.cpu())))
 
@@ -631,7 +654,7 @@ if __name__ == '__main__':
     
     batch_size = 4
     net = SiameseNet(batch_size)
-    suffix = '_testf' # comment in if not coming from generating the dataset
+    suffix = '_test' # comment in if not coming from generating the dataset
     path_to_params = "models/_allClasses1000obj_5000points_100epochs.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
     
     # shift to GPU if available
@@ -660,7 +683,7 @@ if __name__ == '__main__':
     lr = 1e-3
     
     net = train(net, num_epochs, margin, lr, print_batch, 
-                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir)
+                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
     
     # Validation
     margin = 0.5
