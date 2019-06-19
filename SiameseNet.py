@@ -81,8 +81,8 @@ class SiameseNet(nn.Module):
         #print('fp_s:', t_fp_shape)
         #print('fp_d:', t_fp_desc)
 
-        desc_pred = nn.functional.softmax(self.fc_c(out),dim=1)  # TODO make sure we use the same weights as for shape
-        shape_pred = nn.functional.softmax(self.fc_c(x_shape.squeeze(2)),dim=1)
+        desc_pred = nn.functional.softmax(self.fc_c(out),dim=1).to(self.device)  # TODO make sure we use the same weights as for shape
+        shape_pred = nn.functional.softmax(self.fc_c(x_shape.squeeze(2)),dim=1).to(self.device)
         return x_shape, out.reshape(batch_size,128,1), shape_pred, desc_pred
 
     
@@ -344,6 +344,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
 
 
 def classification_loss(x, shape_pred, desc_pred, class_dir):
+    device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     ids = list(x[2])
     with open(class_dir, 'r') as fp:
         class_dict = json.load(fp)
@@ -353,7 +354,7 @@ def classification_loss(x, shape_pred, desc_pred, class_dir):
     lables = torch.zeros(shape_pred.shape[0])
     for i, id in enumerate(ids):
         lables[i] = number_dict[class_dict[id]]
-    loss = nn.functional.cross_entropy(shape_pred, lables.long()) + nn.functional.cross_entropy(desc_pred, lables.long())
+    loss = nn.functional.cross_entropy(shape_pred, lables.long().to(device)) + nn.functional.cross_entropy(desc_pred, lables.long().to(device))
 
     return loss
 
@@ -508,7 +509,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
 
     # %%
     # create ground truth and prediction list
-    k = 1  # define the rank of retrieval measure
+    k = 5  # define the rank of retrieval measure
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
