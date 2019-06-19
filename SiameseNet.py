@@ -138,14 +138,6 @@ class TripletLoss_hard_negative(nn.Module):
         diff_neg_2 = x_desc - x_shape[hard_neg_ind_desc]
         pos_red_2 = (diff_pos_2 ** 2).sum(1)
         neg_red_2 = (diff_neg_2 ** 2).sum(1)
-        '''diff_pos_3 = x_shape[1:batch_size:2] - x_desc[1:batch_size:2]
-        diff_neg_3 = x_shape[1:batch_size:2] - x_desc[0:batch_size:2]
-        pos_red_3 = (diff_pos_3 ** 2).sum(1)
-        neg_red_3 = (diff_neg_3 ** 2).sum(1)
-        diff_pos_4 = x_desc[1:batch_size:2] - x_shape[1:batch_size:2]
-        diff_neg_4 = x_desc[1:batch_size:2] - x_shape[0:batch_size:2]
-        pos_red_4 = (diff_pos_4 ** 2).sum(1)
-        neg_red_4 = (diff_neg_4 ** 2).sum(1)'''
         
 #        print('show the hardest negatives')
 #        print(hard_neg_ind)
