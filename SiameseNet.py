@@ -475,7 +475,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     print('Finished Training')
     return net
 
-def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images=False):
+def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k,  images=False):
     #d_val_triplets = generate_val_triplets(data_dir_val)
     batch_size = net.batch_size
     writer = SummaryWriter(comment=writer_suffix)
@@ -509,7 +509,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
 
     # %%
     # create ground truth and prediction list
-    k = 5  # define the rank of retrieval measure
+    # define the rank of retrieval measure
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
