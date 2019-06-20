@@ -105,7 +105,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
     points = torch.from_numpy(points).type(torch.FloatTensor)
     d_vector2 = torch.from_numpy(d_vector2).type(torch.FloatTensor)
     with torch.no_grad():
-        _, description,_,_ = net([points.to(device), d_vector2.to(device)],batch_size)
+        _, description = net([points.to(device), d_vector2.to(device)],batch_size)
         #_, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir, print_nn=False)
 
     k = 5  # define the rank of retrieval measure
