@@ -81,8 +81,8 @@ class SiameseNet(nn.Module):
         #print('fp_s:', t_fp_shape)
         #print('fp_d:', t_fp_desc)
 
-        desc_pred = nn.functional.softmax(self.fc_c(out),dim=1).to(self.device)  # TODO make sure we use the same weights as for shape
-        shape_pred = nn.functional.softmax(self.fc_c(x_shape.squeeze(2)),dim=1).to(self.device)
+        desc_pred = self.fc_c(out).to(self.device)  # TODO make sure we use the same weights as for shape
+        shape_pred = self.fc_c(x_shape.squeeze(2)).to(self.device)
         return x_shape, out.reshape(batch_size,128,1), shape_pred, desc_pred
 
     
@@ -343,13 +343,9 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     return hardest_negative_ind
 
 
-def classification_loss(x, shape_pred, desc_pred, class_dir):
+def classification_loss(x, shape_pred, desc_pred, class_dict, number_dict):
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     ids = list(x[2])
-    with open(class_dir, 'r') as fp:
-        class_dict = json.load(fp)
-    with open('number_dict.json', 'r') as fp:
-        number_dict = json.load(fp)
 
     lables = torch.zeros(shape_pred.shape[0])
     for i, id in enumerate(ids):
@@ -365,12 +361,16 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     optimizer = optim.Adam(net.parameters(), lr)
     #criterion = TripletLoss(margin=margin)
     criterion = TripletLoss_hard_negative(margin=margin)
-
+    with open(class_dir, 'r') as fp:
+        class_dict = json.load(fp)
+    with open('number_dict.json', 'r') as fp:
+        number_dict = json.load(fp)
     batch_size = net.batch_size
     
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         net.train()
         running_loss = 0.0
+        running_cl_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
 
@@ -407,7 +407,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
             #t0 = time.time()
 
-            loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dir)
+            loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dict, number_dict)
             loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_cl
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
@@ -424,11 +424,15 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             # print statistics
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
+            running_cl_loss += loss_cl.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i_batch + 1, running_loss / (print_batch * batch_size)))
+                print('[%d, %5d] loss_cl: %.3f' %
+                      (epoch + 1, i_batch + 1, running_cl_loss / (print_batch * batch_size)))
                 running_loss = 0.0
+                running_cl_loss = 0.0
 
         writer.add_scalar('Train loss per epoch', loss_epoch / (len(train_data) - (len(train_data) % batch_size)),
                           epoch)
@@ -454,7 +458,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 output_shape, output_desc, shape_pred, desc_pred = net(data, batch_size)
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
-                loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dir)
+                loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dict, number_dict)
                 loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_cl
                 val_loss_epoch += loss_val.item()
             #
