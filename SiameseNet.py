@@ -67,6 +67,7 @@ class SiameseNet(nn.Module):
         self.linear = nn.Linear(100, 128).to(self.device)
         self.batch_size = batch_size
         self.fc_c = nn.Linear(128, 13)
+        self.drop = nn.Dropout(0.0)
 
 
     def forward(self, x, batch_size):
@@ -78,11 +79,11 @@ class SiameseNet(nn.Module):
 
         out = self.linear(out[-1])
         t_fp_desc = time.time() - t0
-        #print('fp_s:', t_fp_shape)
-        #print('fp_d:', t_fp_desc)
-
-        desc_pred = self.fc_c(out).to(self.device)  # TODO make sure we use the same weights as for shape
-        shape_pred = self.fc_c(x_shape.squeeze(2)).to(self.device)
+        concat = torch.cat((out, x_shape.squeeze(2)), 0)
+        concat = shape_pred = nn.functional.softmax(self.fc_c(concat),dim=1).to(self.device)
+        desc_pred, shape_pred = torch.split(concat, self.batch_size, dim=0)
+        #desc_pred = self.drop(F.relu(self.fc_c(out).to(self.device))) # TODO make sure we use the same weights as for shape
+        #shape_pred = self.drop(F.relu(self.fc_c(x_shape.squeeze(2)).to(self.device)))
         return x_shape, out.reshape(batch_size,128,1), shape_pred, desc_pred
 
     
@@ -350,7 +351,7 @@ def classification_loss(x, shape_pred, desc_pred, class_dict, number_dict):
     lables = torch.zeros(shape_pred.shape[0])
     for i, id in enumerate(ids):
         lables[i] = number_dict[class_dict[id]]
-    loss = nn.functional.cross_entropy(shape_pred, lables.long().to(device)) + nn.functional.cross_entropy(desc_pred, lables.long().to(device))
+    loss = nn.functional.cross_entropy(shape_pred, lables.long().to(device)) + 0.0*nn.functional.cross_entropy(desc_pred, lables.long().to(device))
 
     return loss
 
