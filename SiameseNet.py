@@ -353,8 +353,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         running_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
-        #if (epoch%25 == 0 and epoch >0):
-        #    lr = lr/10
+        #if (epoch%20 == 0 and epoch >0):
+        #    lr = lr/3
         #    optimizer = optim.Adam(net.parameters(), lr)
         #d_train_triplets = generate_train_triplets(data_dir_train)
 
@@ -509,6 +509,8 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
                 if s == [y_true[i]]:
                     y_pred2[i] = s
                     break
+    else:
+        y_pred2=y_pred
 
     precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
                                                                          average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
