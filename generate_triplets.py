@@ -16,10 +16,10 @@ def load_val_data(val_name):
     
     return data_val
 
-    
+# TODO do not load all data every time to generate triplet list
 # function that generates a list of anchorID and other ID 
 def generate_train_triplets(train_name):
-    data_train = load_train_data(train_name)
+    data_train = load_train_data(train_name) # dict that contains ID as key, 1 value points, 5 desc 
     keys_train = list(data_train.keys())
     keys_train_perm = np.random.permutation(keys_train)
     
@@ -29,9 +29,9 @@ def generate_train_triplets(train_name):
         while key == perm2:
             perm2 = random.choice(keys_train_perm)
         triplets_train[key] = perm2
-    print(len(triplets_train), "train triplets generated -> return dict")
+    #print(len(triplets_train), "train triplets generated -> return dict")
     
-    return triplets_train
+    return triplets_train # we could save the step of explicitely telling a negative for each key
 
 #with open('triplets_train.json', 'w') as fp:
 #    json.dump(triplets_train, fp)
@@ -45,7 +45,7 @@ def generate_val_triplets(val_name):
         while key == perm2:
             perm2 = random.choice(keys_val_perm)
         triplets_val[key] = perm2
-    print(len(triplets_val), "val triplets generated")
+    #print(len(triplets_val), "val triplets generated")
     
     return triplets_val
 
