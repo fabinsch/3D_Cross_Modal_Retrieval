@@ -353,9 +353,9 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         running_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
-        if (epoch%25 == 0 and epoch >0):
-            lr = lr/10
-            optimizer = optim.Adam(net.parameters(), lr)
+        #if (epoch%25 == 0 and epoch >0):
+        #    lr = lr/10
+        #    optimizer = optim.Adam(net.parameters(), lr)
         #d_train_triplets = generate_train_triplets(data_dir_train)
 
 #        train_data = pointcloudDataset(d_data=d_train_triplets, json_data=data_dir_train, root_dir=working_dir,
@@ -454,7 +454,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     print('Finished Training')
     return net
 
-def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images=False):
+def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, images=False):
     #d_val_triplets = generate_val_triplets(data_dir_val)
     batch_size = net.batch_size
     writer = SummaryWriter(comment=writer_suffix)
@@ -488,7 +488,6 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images
 
     # %%
     # create ground truth and prediction list
-    k = 1  # define the rank of retrieval measure
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
