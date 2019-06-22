@@ -24,7 +24,6 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
         randomized = np.random.permutation(y_true)
     else:
         randomized = y_true
-    print(y_pred[0])
     for i in range(max_show):
         key = ids[randomized[i]]
         print( i, "ID:", key, " Descr.:", " ".join(data_val[key][1]))
@@ -59,7 +58,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
         vocabulary = json.load(fp)
     glove_50 = os.path.join(os.getcwd(), 'glove.6B/glove.6B.50d_clean.txt')  # TODO filter words we use
     f = open(glove_50)
-
+    net.eval()
     embeddings_index={}
     for line in f:
         values = line.split()
@@ -111,7 +110,6 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
     ## get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
     _, indices = nbrs.kneighbors(np.asarray(description.cpu()).squeeze(2)) #description of sentence
-    print(indices[0])
     with open(class_dir, 'r') as fp:
         data_class = json.load(fp)
     import matplotlib.pyplot as plt

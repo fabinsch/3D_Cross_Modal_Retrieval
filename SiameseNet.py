@@ -21,7 +21,7 @@ from matplotlib.lines import Line2D
 from tensorboardX.writer import SummaryWriter
 
 from generate_triplets import generate_train_triplets, generate_val_triplets
-from create_triplet_dataset import load_train_data, load_val_data, load_val_samples
+from create_triplet_dataset import load_train_data, load_val_data, load_val_samples, load_ret_data
 from PIL import Image
 
 import torch.optim as optim
@@ -160,9 +160,9 @@ class pointcloudDataset(Dataset):
         if mode=='val':
 #            self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data, d_data)
             self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data)
-
-        #if mode=='ret':
-            #self.objects_shape, self.objects_description, self.train_IDs = load_val_samples(self.data, d_data)
+    
+        if mode=='ret':
+            self.objects_shape, self.objects_description, self.train_IDs = load_ret_data(self.data)
 
 
         self.root_dir = root_dir
@@ -179,6 +179,7 @@ class pointcloudDataset(Dataset):
             self.embeddings_index[word] = coefs
         f.close()
         print('Loaded %s word vectors.' % len(self.embeddings_index))
+        
 
     def __len__(self):
         return len(self.objects_shape)
@@ -569,7 +570,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
 def retrieval(net, data_dir_val, working_dir,print_nn=False):
     batch_size = net.batch_size
     #d_val_samples = generate_val_triplets(data_dir_val)
-    val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='val')
+    val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='ret')
     valloader = DataLoader(val_data, batch_size=batch_size,
                            shuffle=False)
     #

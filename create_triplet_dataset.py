@@ -98,6 +98,23 @@ def load_val_data(data):
         
     return triplets_shape_val, triplets_description_val, triplets_id_val
 
+def load_ret_data(data):
+    
+    triplets_shape_val = []
+    triplets_description_val = []
+    triplets_id_val = []
+    
+    for key, row in data.items():
+        
+        triplets_shape_val.append(data[key][0])
+        #which_desc = random.randint(1, len(data[key])-1)
+        which_desc = 1
+        triplets_description_val.append(data[key][which_desc])
+        triplets_id_val.append(key)
+
+        
+    return triplets_shape_val, triplets_description_val, triplets_id_val
+
 
 def load_val_samples(data, triplets_val):
     triplets_shape_val = []
