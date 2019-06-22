@@ -51,7 +51,7 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
 
 
 
-def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, num_KNN):
+def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y_pred , ids, shape, num_KNN):
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     tokens = sentence.lower().split()
     batch_size = net.batch_size
@@ -106,7 +106,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, n
     d_vector2 = torch.from_numpy(d_vector2).type(torch.FloatTensor)
     with torch.no_grad():
         _, description = net([points.to(device), d_vector2.to(device)],batch_size)
-        _, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir, print_nn=False)
+        #_, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir, print_nn=False)
 
     k = 5  # define the rank of retrieval measure
 
