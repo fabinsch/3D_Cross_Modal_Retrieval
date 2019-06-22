@@ -596,7 +596,6 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(description)
-
     y_true = []
     y_pred = []
     y_pred2 = [-1] * len(indices)

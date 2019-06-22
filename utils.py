@@ -17,14 +17,14 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
     import matplotlib.pyplot as plt
 
     y_true = [x for x in range(np.shape(y_pred)[0])]
-
+    
     fig, axes = plt.subplots(nrows=max_show, ncols=num_KNN+1, figsize=(12, 8))
 
     if (shuffle == True):
         randomized = np.random.permutation(y_true)
     else:
         randomized = y_true
-
+    print(y_pred[0])
     for i in range(max_show):
         key = ids[randomized[i]]
         print( i, "ID:", key, " Descr.:", " ".join(data_val[key][1]))
@@ -51,7 +51,7 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
 
 
 
-def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y_pred , ids, shape, num_KNN):
+def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y_pred , ids, shape, num_KNN, samples_pointcould):
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     tokens = sentence.lower().split()
     batch_size = net.batch_size
@@ -72,10 +72,9 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
         # check if word is in GloVe
         if token in vocabulary.keys() and token in embeddings_index.keys():
             words_clean.append(token)
-
     d_vector = []
+    
     i = 0
-
     clipping_length = 20 #TODO Increase
     #t0=time.time()
 
@@ -98,8 +97,7 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
     else:
         pad_vector = torch.tensor(d_vector)
         d_vector = pad_vector
-
-    points = np.zeros([batch_size, 6, 1000])
+    points = np.zeros([batch_size, 6, samples_pointcould])
     d_vector2 = np.zeros([batch_size, 20, 50])
     d_vector2[0] = d_vector
     points = torch.from_numpy(points).type(torch.FloatTensor)
@@ -107,14 +105,13 @@ def retrieve_one_sentence(net, data_dir_val, working_dir, sentence, class_dir, y
     with torch.no_grad():
         _, description = net([points.to(device), d_vector2.to(device)],batch_size)
         #_, y_pred , ids, shape, _ = SiameseNet.retrieval(net, data_dir_val, working_dir, print_nn=False)
-
     k = 5  # define the rank of retrieval measure
-
+    
     #description = description[batch_size:, :, :].reshape(len(description), np.shape(description[1])[0])
     ## get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
     _, indices = nbrs.kneighbors(np.asarray(description.cpu()).squeeze(2)) #description of sentence
-
+    print(indices[0])
     with open(class_dir, 'r') as fp:
         data_class = json.load(fp)
     import matplotlib.pyplot as plt
