@@ -143,7 +143,7 @@ class TripletLoss_hard_negative(nn.Module):
 #        print('show active pairs description as anchor')
 #        print(F.relu(pos_red_2 - neg_red_2 + margin)>0)
         
-        loss = F.relu(pos_red_1 - neg_red_1 + margin).sum(0) + F.relu(pos_red_2 - neg_red_2 + margin).sum(0)# +F.relu(pos_red_3 - neg_red_3 + margin).sum(0) +F.relu(pos_red_4 - neg_red_4 + margin).sum(0)
+        loss = 0.05*pos_red_1.sum(0) + F.relu(pos_red_1 - neg_red_1 + margin).sum(0) + F.relu(pos_red_2 - neg_red_2 + margin).sum(0)# +F.relu(pos_red_3 - neg_red_3 + margin).sum(0) +F.relu(pos_red_4 - neg_red_4 + margin).sum(0)
         return loss
 
 
@@ -494,7 +494,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(description)
 
-    y_true = []
+    '''y_true = []
     y_pred = []
     y_pred2 = [-1] * len(indices)
     for i, ind in enumerate(indices):
@@ -515,11 +515,31 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
 
     precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
                                                                          average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
-    print('precision:', precision)
+    print('precision:', precision)'''
     #print('recall:', recall)
     #print('fscore:', fscore)
+    hit_1 = 0
+    hit_k = 0
+    for i, row in enumerate(indices):
+        if (i==row[0]):
+            hit_1 = hit_1 +1
+        if i in row:
+            hit_k = hit_k +1
 
-    ndcg = ndcg_score(y_true, y_pred, k=k)
+    print('RR@ 1 = ', hit_1 / len(indices))
+
+    print('RR@', k, '= ', hit_k/len(indices))
+
+    y_true = list(range(len(indices)))
+    mat = np.zeros((len(y_true), len(y_true)))
+    for i, row in enumerate(indices):
+        fac = 0.9
+        for el in row:
+            mat[i][el] = fac
+            fac = fac / 1.1
+
+
+    ndcg = ndcg_score(y_true, mat, k=k)
     print('NDCG:', ndcg)
 
     # %%
@@ -660,5 +680,5 @@ if __name__ == '__main__':
     # Validation
     margin = 0.5
     writer_suffix = 'understanding_HN_1_Val'
-    val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, images=False)
+    val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k=k, images=False)
 
