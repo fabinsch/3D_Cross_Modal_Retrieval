@@ -81,6 +81,13 @@ class SiameseNet(nn.Module):
         #print('fp_s:', t_fp_shape)
         #print('fp_d:', t_fp_desc)
 
+        # Decode embeddings to shape
+
+        #net = tf_util.fully_connected(embedding, 512, bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
+        #net = tf_util.fully_connected(net, 512, bn=True, is_training=is_training, scope='fc2', bn_decay=bn_decay)
+        #net = tf_util.fully_connected(net, 1024 * 3, activation_fn=None, scope='fc3')  # select our output size here?
+        #pc_fc = tf.reshape(net, (batch_size, -1, 3))
+
         return x_shape, out.reshape(batch_size,128,1)
     
 class TripletLoss(nn.Module):
@@ -674,6 +681,7 @@ if __name__ == '__main__':
     num_epochs = 1
     print_batch = 1
     lr = 1e-3
+    k=5
     
     net = train(net, num_epochs, margin, lr, print_batch, 
                            data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir)
