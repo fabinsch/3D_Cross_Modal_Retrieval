@@ -58,15 +58,24 @@ def plot_grad_flow(named_parameters):
     plt.show()
 
 class SiameseNet(nn.Module):
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, num_points):
         super(SiameseNet, self).__init__()
         self.device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
         self.pointNet = pointnet2.PointNet2ClsSsg()
         self.hidden = (torch.randn(2, batch_size, 100).to(self.device), torch.randn(2, batch_size, 100).to(self.device))
         self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2).to(self.device)
         self.linear = nn.Linear(100, 128).to(self.device)
-
         self.batch_size = batch_size
+        self.num_points = num_points
+
+        self.seq1 = torch.nn.Sequential(
+        torch.nn.Linear(128, 512),
+        torch.nn.ReLU(),
+        torch.nn.Linear(512, 512),
+        torch.nn.ReLU(),
+        torch.nn.Linear(512, 3*self.num_points),
+        ).to(device)
+
 
 
     def forward(self, x, batch_size):
@@ -82,13 +91,15 @@ class SiameseNet(nn.Module):
         #print('fp_d:', t_fp_desc)
 
         # Decode embeddings to shape
+        shape_decoded = self.seq1(x_shape.squeeze(2))
+        shape_decoded_pc = shape_decoded.reshape(batch_size, 3,  self.num_points)
 
-        #net = tf_util.fully_connected(embedding, 512, bn=True, is_training=is_training, scope='fc1', bn_decay=bn_decay)
-        #net = tf_util.fully_connected(net, 512, bn=True, is_training=is_training, scope='fc2', bn_decay=bn_decay)
-        #net = tf_util.fully_connected(net, 1024 * 3, activation_fn=None, scope='fc3')  # select our output size here?
-        #pc_fc = tf.reshape(net, (batch_size, -1, 3))
+        desc_decoded = self.seq1(out.reshape(batch_size,128))
+        desc_decoded_pc = desc_decoded.reshape(batch_size, 3, self.num_points)
 
-        return x_shape, out.reshape(batch_size,128,1)
+
+
+        return x_shape, out.reshape(batch_size,128,1), shape_decoded_pc, desc_decoded_pc
     
 class TripletLoss(nn.Module):
     """
@@ -384,7 +395,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 break
             # forward + backward + optimize
             #t0 = time.time()
-            x_shape, x_desc = net(sample_batched,batch_size)
+            x_shape, x_desc , shape_decoded_pc, desc_decoded_pc = net(sample_batched,batch_size)
             #t_elapsed_fp = time.time() - t0
             # print('forward :',t_elapsed_fp,'s')
             
@@ -396,7 +407,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #print(t_elapsed_hard_neg)
 
             #t0 = time.time()
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
+
+            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) #
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -483,7 +495,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc = net(data,batch_size)
+            output_shape, output_desc, shape_decoded_pc, desc_decoded_pc = net(data,batch_size)
 
             #loss = criterion(output_shape, output_desc, batch_size, margin)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
@@ -653,8 +665,9 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     
     batch_size = 4
-    net = SiameseNet(batch_size)
-    suffix = '_testf' # comment in if not coming from generating the dataset
+    num_points = 1000
+    net = SiameseNet(batch_size, num_points)
+    suffix = '_test' # comment in if not coming from generating the dataset
     path_to_params = "models/_allClasses1000obj_5000points_100epochs.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
     
     # shift to GPU if available
@@ -684,7 +697,7 @@ if __name__ == '__main__':
     k=5
     
     net = train(net, num_epochs, margin, lr, print_batch, 
-                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir)
+                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
     
     # Validation
     margin = 0.5
