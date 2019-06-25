@@ -80,7 +80,8 @@ class SiameseNet(nn.Module):
         out = self.linear(out[-1])
         t_fp_desc = time.time() - t0
         concat = torch.cat((out, x_shape.squeeze(2)), 0)
-        concat = nn.functional.softmax(self.fc_c(concat),dim=1).to(self.device)
+        #concat = nn.functional.softmax(self.fc_c(concat),dim=1).to(self.device)
+        concat = self.drop(F.relu(self.fc_c(concat)).to(self.device))
         desc_pred, shape_pred = torch.split(concat, self.batch_size, dim=0)
         #desc_pred = self.drop(F.relu(self.fc_c(out).to(self.device))) # TODO make sure we use the same weights as for shape
         #shape_pred = self.drop(F.relu(self.fc_c(x_shape.squeeze(2)).to(self.device)))
