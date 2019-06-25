@@ -87,8 +87,6 @@ class SiameseNet(nn.Module):
 
         out = self.linear(out[-1])
         t_fp_desc = time.time() - t0
-        #print('fp_s:', t_fp_shape)
-        #print('fp_d:', t_fp_desc)
 
         # Decode embeddings to shape
         shape_decoded = self.seq1(x_shape.squeeze(2))
