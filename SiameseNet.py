@@ -200,8 +200,9 @@ class pointcloudDataset(Dataset):
         for word in self.objects_description[idx]:
             if i < clipping_length:
                 embedding_vector = self.embeddings_index.get(word)
-                d_vector.append(embedding_vector)
-                i += 1
+                if embedding_vector is not None:
+                    d_vector.append(embedding_vector)
+                    i += 1
             else:
                 break
 
