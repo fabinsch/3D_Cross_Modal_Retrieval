@@ -36,17 +36,21 @@ def create_dict_text_enc():
     
     glove_50=os.path.join(os.getcwd(), 'glove.6B/glove.6B.50d_clean.txt')
     f = open(glove_50)
-    embeddings_index_log_nat[0]='<START>'
-    embeddings_index_log_nat[1]='<PAD>'
+    
+    embeddings_index_log_nat[0]='<PAD>'
+    embeddings_index_log_nat[1]='<START>'
     embeddings_index_log_nat[2]='<END>'
-    start_embedd=[0]+49*[0]
-    pad_embedd=[1]+49*[0]
+    
+    pad_embedd=[0]+49*[0]
+    start_embedd=[1]+49*[0]
     end_embedd=[2]+49*[0]
+    
     embeddings_index[str(start_embedd)]='<START>'
     embeddings_index[str(pad_embedd)]='<PAD>'
     embeddings_index[str(end_embedd)]='<END>'
-    embeddings_index_log[str(start_embedd)]=0
-    embeddings_index_log[str(pad_embedd)]=1
+    
+    embeddings_index_log[str(pad_embedd)]=0
+    embeddings_index_log[str(start_embedd)]=1
     embeddings_index_log[str(end_embedd)]=2
         
     for i, line in enumerate(f, start=3):
