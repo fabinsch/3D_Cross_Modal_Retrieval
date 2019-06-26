@@ -369,6 +369,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         number_dict = json.load(fp)
     batch_size = net.batch_size
     
+    path_to_hidden = str(path_to_params[:-3] + '_hidden.pt')
+    if (os.path.isfile(path_to_hidden) == False):
+        torch.save(net.hidden, path_to_hidden)
+    
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         net.train()
         running_loss = 0.0
@@ -690,6 +694,9 @@ if __name__ == '__main__':
     data_dir_val = os.path.join(working_dir, 'data_val'+suffix+'.json')
     class_dir = os.path.join(working_dir, 'class_dict'+suffix+'.json')
     
+    path_to_hidden = str(path_to_params[:-3] + '_hidden.pt')
+    if os.path.isfile(path_to_hidden):
+        net.hidden = torch.load(path_to_hidden)
     if os.path.isfile(path_to_params):
         if os.stat(path_to_params).st_size != 0:
             net.load_state_dict(torch.load(path_to_params, map_location=device))  #Loads pretrained net if file exists and if not empty
