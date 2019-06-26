@@ -54,7 +54,7 @@ for keys, value in d.items():
     if value > 2:
         d_clean[keys] = value
 
-print('size of clean voccabulary:', len(d_clean))
+print('size of clean vocabulary:', len(d_clean))
 with open('vocabulary_clean.json', 'w') as fp:
     json.dump(d_clean, fp)
 
