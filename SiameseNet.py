@@ -68,7 +68,7 @@ class SiameseNet(nn.Module):
         self.linear_text_dec = nn.Linear(128, 50).to(self.device)
         self.batch_size = batch_size
         self.num_points = num_points
-        glove_size = 5000 + 2  #+2 for start and end
+        glove_size = 5105 + 3  #+2 for start and end and pad
         self.hidden_dec = (torch.randn(2, batch_size, glove_size).to(self.device), torch.randn(2, batch_size, glove_size).to(self.device))
         self.lstm_dec = nn.LSTM(input_size=50, hidden_size=glove_size, num_layers=2).to(self.device)
 
@@ -381,6 +381,7 @@ def get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc):
 def get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt):
     gt = sample_batched[2]
     loss = 0
+    
     return loss
 
 def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir):
