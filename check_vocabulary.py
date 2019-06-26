@@ -11,7 +11,7 @@ threshold=20
 def isNaN(num):
     return num != num
 
-descriptions = pd.read_csv('descriptions/descriptions_cleaned_LT.csv',  encoding='ISO-8859-1',sep=',', error_bad_lines=False, header=None, skiprows=1)
+descriptions = pd.read_csv('descriptions/descriptions_cleaned.csv',  encoding='ISO-8859-1',sep=',', error_bad_lines=False, header=None, skiprows=1)
 for index, row in descriptions.iterrows():
     for words in str(row[2]).split():
         if words in d.keys():
