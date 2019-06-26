@@ -26,8 +26,59 @@ from PIL import Image
 
 import torch.optim as optim
 import torchvision.transforms as transforms
+#from chamfer_distance import ChamferDistance
+#chamfer_dist = ChamferDistance() CUDA required
 
 #
+class WassersteinLossVanilla(torch.autograd.Function):
+    # taken from: https://github.com/t-vi/pytorch-tvmisc/blob/master/wasserstein-distance/Pytorch_Wasserstein.ipynb
+    def __init__(self,cost, lam = 1e-3, sinkhorn_iter = 50):
+        super(WassersteinLossVanilla,self).__init__()
+        
+        # cost = matrix M = distance matrix
+        # lam = lambda of type float > 0
+        # sinkhorn_iter > 0
+        # diagonal cost should be 0
+        self.cost = cost
+        self.lam = lam
+        self.sinkhorn_iter = sinkhorn_iter
+        self.na = cost.size(0)
+        self.nb = cost.size(1)
+        self.K = torch.exp(-self.cost/self.lam)
+        self.KM = self.cost*self.K
+        self.stored_grad = None
+        
+    def forward(self, pred, target):
+        """pred: Batch * K: K = # mass points
+           target: Batch * L: L = # mass points"""
+        assert pred.size(1)==self.na
+        assert target.size(1)==self.nb
+
+        nbatch = pred.size(0)
+        
+        u = self.cost.new(nbatch, self.na).fill_(1.0/self.na)
+        
+        for i in range(self.sinkhorn_iter):
+            v = target/(torch.mm(u,self.K.t())) # double check K vs. K.t() here and next line
+            u = pred/(torch.mm(v,self.K))
+            #print ("stability at it",i, "u",(u!=u).sum(),u.max(),"v", (v!=v).sum(), v.max())
+            if (u!=u).sum()>0 or (v!=v).sum()>0 or u.max()>1e9 or v.max()>1e9: # u!=u is a test for NaN...
+                # we have reached the machine precision
+                # come back to previous solution and quit loop
+                raise Exception(str(('Warning: numerical errrors',i+1,"u",(u!=u).sum(),u.max(),"v",(v!=v).sum(),v.max())))
+
+        loss = (u*torch.mm(v,self.KM.t())).mean(0).sum() # double check KM vs KM.t()...
+        grad = self.lam*u.log()/nbatch # check whether u needs to be transformed        
+        grad = grad-torch.mean(grad,dim=1, keepdim=True)
+        grad = grad-torch.mean(grad,dim=1, keepdim=True) # does this help over only once?
+        self.stored_grad = grad
+
+        dist = self.cost.new((loss,))
+        return dist
+    def backward(self, grad_output):
+        print (grad_output.size(), self.stored_grad.size())
+        return self.stored_grad*grad_output[0],None
+
 def plot_grad_flow(named_parameters):
     '''Plots the gradients flowing through different layers in the net during training.
     Can be used for checking for possible gradient vanishing / exploding problems.
@@ -392,7 +443,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     # Get final mean triplet loss
     #triplet_loss = tf.reduce_mean(triplet_loss)
 
-    return hardest_negative_ind
+    return (hardest_negative_ind, pairwise_dist)
 
 
 
@@ -402,6 +453,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     optimizer = optim.Adam(net.parameters(), lr)
     #criterion = TripletLoss(margin=margin)
     criterion = TripletLoss_hard_negative(margin=margin)
+    
+  
 
     batch_size = net.batch_size
     path_to_hidden = str(path_to_params[:-3] + '_hidden.pt')
@@ -443,14 +496,19 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t0 = time.time()
             embeddings = torch.cat((x_shape.squeeze(), x_desc.squeeze()))
             #m_distance = _pairwise_distances(embeddings)
-            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
+            hard_neg_ind, _ = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
             #t_elapsed_hard_neg = time.time() - t0
             #print(t_elapsed_hard_neg)
 
             #t0 = time.time()
-
+            
+            # get the distance matrix
+            dist = _pairwise_distances(shape_dec_pc.reshape(-1,1))
+            EMD_loss = WassersteinLossVanilla(cost=dist, lam = 1e-3, sinkhorn_iter = 3) #iter = 50
+            loss_shape = EMD_loss.forward(pred=shape_dec_pc.reshape(1,-1), target=sample_batched[0][:,0:3,:].reshape(1,-1))
+            loss_shape.backward()
             #Losses:
-            loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
+            #loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
             loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
             loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
             #t_elapsed_loss = time.time() - t0
