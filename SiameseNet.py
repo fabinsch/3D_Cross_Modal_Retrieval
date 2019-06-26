@@ -204,11 +204,11 @@ class pointcloudDataset(Dataset):
         self.embeddings_index = dict()
         glove_50=os.path.join(os.getcwd(), 'glove.6B/glove.6B.50d_clean.txt')
         f = open(glove_50)
-        for line in f:
+        for i, line in enumerate(f,start=3):
             values = line.split()
             word = values[0]
             coefs = np.asarray(values[1:], dtype='float32')
-            self.embeddings_index[word] = coefs
+            self.embeddings_index[word] = (coefs, i)
         f.close()
         print('Loaded %s word vectors.' % len(self.embeddings_index))
         
@@ -228,10 +228,12 @@ class pointcloudDataset(Dataset):
         i = 0
         clipping_length = 20 #TODO Increase
         #t0=time.time()
-
-        for word in self.objects_description[idx]:
+        gt = torch.zeros(22)
+        gt[0] = 1
+        gt[-1] = 2
+        for k, word in enumerate(self.objects_description[idx]):
             if i < clipping_length:
-                embedding_vector = self.embeddings_index.get(word)
+                embedding_vector, gt[k+1] = self.embeddings_index.get(word)
                 d_vector.append(embedding_vector)
                 i += 1
             else:
@@ -248,7 +250,7 @@ class pointcloudDataset(Dataset):
         else:
             pad_vector = torch.tensor(d_vector)
             d_vector = pad_vector
-        return [points.to(self.device), d_vector.to(self.device)]
+        return [points.to(self.device), d_vector.to(self.device), gt.to(self.device)]
     
 def _pairwise_distances(embeddings, squared=False):
     """Compute the 2D matrix of distances between all the embeddings.
@@ -377,9 +379,8 @@ def get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc):
     return loss
 
 def get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt):
-    gt = sample_batched[1]
+    gt = sample_batched[2]
     loss = 0
-
     return loss
 
 def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir):
