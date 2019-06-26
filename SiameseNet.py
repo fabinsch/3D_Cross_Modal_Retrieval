@@ -129,7 +129,7 @@ class SiameseNet(nn.Module):
         torch.nn.Linear(512, 512),
         torch.nn.ReLU(),
         torch.nn.Linear(512, 3*self.num_points),
-        ).to(device)
+        ).to(self.device)
 
 
 
@@ -154,12 +154,12 @@ class SiameseNet(nn.Module):
         # fc to go from 128
         shape_dec_txt = self.linear_text_dec(x_shape.squeeze(2)) #batch_size, 50
         teacher_shape = torch.cat((shape_dec_txt.unsqueeze(1), description), dim=1)
-        teacher_shape = torch.cat((teacher_shape,torch.zeros(self.batch_size,1,50)), dim=1)
+        teacher_shape = torch.cat((teacher_shape,torch.zeros(self.batch_size,1,50).to(self.device)), dim=1)
         shape_dec_txt, _ = self.lstm_dec(teacher_shape.permute(1, 0, 2), self.hidden_dec)
 
         desc_dec_txt = self.linear_text_dec(out)  # batch_size, 50
         teacher_desc = torch.cat((desc_dec_txt.unsqueeze(1), description), dim=1)
-        teacher_desc = torch.cat((teacher_desc, torch.zeros(self.batch_size, 1, 50)), dim=1)
+        teacher_desc = torch.cat((teacher_desc, torch.zeros(self.batch_size, 1, 50).to(self.device)), dim=1)
         desc_dec_txt, _ = self.lstm_dec(teacher_desc.permute(1, 0, 2), self.hidden_dec)
 
 
