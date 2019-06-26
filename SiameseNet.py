@@ -88,7 +88,7 @@ class SiameseNet(nn.Module):
         t_fp_shape = time.time() - t0
         description = x[1].to(self.device)
         out, hidden = self.lstm(description.permute(1,0,2), self.hidden)
-        d = description.permute(1, 0, 2)
+        d = description.permute(1, 0, 2) # what is that for
         out = self.linear(out[-1])
         t_fp_desc = time.time() - t0
 
