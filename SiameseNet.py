@@ -68,9 +68,9 @@ class SiameseNet(nn.Module):
         self.linear_text_dec = nn.Linear(128, 50).to(self.device)
         self.batch_size = batch_size
         self.num_points = num_points
-        glove_size = 5105 + 3  #+2 for start and end and pad
-        self.hidden_dec = (torch.randn(2, batch_size, glove_size).to(self.device), torch.randn(2, batch_size, glove_size).to(self.device))
-        self.lstm_dec = nn.LSTM(input_size=50, hidden_size=glove_size, num_layers=2).to(self.device)
+        self.glove_size = 5105 + 3  #+2 for start and end and pad
+        self.hidden_dec = (torch.randn(2, batch_size, self.glove_size).to(self.device), torch.randn(2, batch_size, self.glove_size).to(self.device))
+        self.lstm_dec = nn.LSTM(input_size=50, hidden_size=self.glove_size, num_layers=2).to(self.device)
 
         self.seq1 = torch.nn.Sequential(
         torch.nn.Linear(128, 512),
@@ -104,7 +104,7 @@ class SiameseNet(nn.Module):
         shape_dec_txt = self.linear_text_dec(x_shape.squeeze(2)) #batch_size, 50
         teacher_shape = torch.cat((shape_dec_txt.unsqueeze(1), description), dim=1)
         teacher_shape = torch.cat((teacher_shape,torch.zeros(self.batch_size,1,50)), dim=1)
-        shape_decoded_txt, _ = self.lstm_dec(teacher_shape.permute(1, 0, 2), self.hidden_dec)
+        shape_dec_txt, _ = self.lstm_dec(teacher_shape.permute(1, 0, 2), self.hidden_dec)
 
         desc_dec_txt = self.linear_text_dec(out)  # batch_size, 50
         teacher_desc = torch.cat((desc_dec_txt.unsqueeze(1), description), dim=1)
@@ -115,6 +115,26 @@ class SiameseNet(nn.Module):
 
         return x_shape, out.reshape(batch_size,128,1), shape_dec_pc, desc_dec_pc, shape_dec_txt, desc_dec_txt
     
+    def get_shape_loss(self, sample_batched, shape_dec_pc, desc_dec_pc):
+        loss = 0
+        return loss
+
+    def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
+        gt = sample_batched[2]
+        shape_dec_txt = shape_dec_txt.permute(1,0,2)
+        
+        desc_dec_txt = desc_dec_txt.permute(1,0,2)
+        r,l = gt.shape
+        gt = gt.reshape((r*l,))
+        
+        shape_dec_txt = shape_dec_txt.reshape((r*l, self.glove_size))
+        desc_dec_txt = desc_dec_txt.reshape((r*l, self.glove_size))
+        
+        loss = nn.functional.cross_entropy(shape_dec_txt, gt.long()) + nn.functional.cross_entropy(desc_dec_txt, gt.long())
+       
+        
+        return loss    
+
 class TripletLoss(nn.Module):
     """
     Triplet loss
@@ -374,15 +394,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
 
     return hardest_negative_ind
 
-def get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc):
-    loss = 0
-    return loss
 
-def get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt):
-    gt = sample_batched[2]
-    loss = 0
-    
-    return loss
 
 def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir):
     
@@ -438,8 +450,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t0 = time.time()
 
             #Losses:
-            loss_shape = get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
-            loss_txt = get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
+            loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
+            loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
             loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
@@ -487,8 +499,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
 
-                loss_shape = get_shape_loss(data, shape_dec_pc, desc_dec_pc)
-                loss_txt = get_txt_loss(data, shape_dec_txt, desc_dec_txt)
+                loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
+                loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
                 loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
                 val_loss_epoch += loss_val.item()
             #
