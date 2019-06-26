@@ -65,8 +65,12 @@ class SiameseNet(nn.Module):
         self.hidden = (torch.randn(2, batch_size, 100).to(self.device), torch.randn(2, batch_size, 100).to(self.device))
         self.lstm = nn.LSTM(input_size=50, hidden_size=100, num_layers=2).to(self.device)
         self.linear = nn.Linear(100, 128).to(self.device)
+        self.linear_text_dec = nn.Linear(128, 50).to(self.device)
         self.batch_size = batch_size
         self.num_points = num_points
+        glove_size = 5000 + 2  #+2 for start and end
+        self.hidden_dec = (torch.randn(2, batch_size, glove_size).to(self.device), torch.randn(2, batch_size, glove_size).to(self.device))
+        self.lstm_dec = nn.LSTM(input_size=50, hidden_size=glove_size, num_layers=2).to(self.device)
 
         self.seq1 = torch.nn.Sequential(
         torch.nn.Linear(128, 512),
@@ -84,20 +88,32 @@ class SiameseNet(nn.Module):
         t_fp_shape = time.time() - t0
         description = x[1].to(self.device)
         out, hidden = self.lstm(description.permute(1,0,2), self.hidden)
-
+        d = description.permute(1, 0, 2)
         out = self.linear(out[-1])
         t_fp_desc = time.time() - t0
 
         # Decode embeddings to shape
-        shape_decoded = self.seq1(x_shape.squeeze(2))
-        shape_decoded_pc = shape_decoded.reshape(batch_size, 3,  self.num_points)
+        shape_dec = self.seq1(x_shape.squeeze(2))
+        shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
 
-        desc_decoded = self.seq1(out.reshape(batch_size,128))
-        desc_decoded_pc = desc_decoded.reshape(batch_size, 3, self.num_points)
+        desc_dec = self.seq1(out.reshape(batch_size,128))
+        desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
+
+        # Decode embeddings to text
+        # fc to go from 128
+        shape_dec_txt = self.linear_text_dec(x_shape.squeeze(2)) #batch_size, 50
+        teacher_shape = torch.cat((shape_dec_txt.unsqueeze(1), description), dim=1)
+        teacher_shape = torch.cat((teacher_shape,torch.zeros(self.batch_size,1,50)), dim=1)
+        shape_decoded_txt, _ = self.lstm_dec(teacher_shape.permute(1, 0, 2), self.hidden_dec)
+
+        desc_dec_txt = self.linear_text_dec(out)  # batch_size, 50
+        teacher_desc = torch.cat((desc_dec_txt.unsqueeze(1), description), dim=1)
+        teacher_desc = torch.cat((teacher_desc, torch.zeros(self.batch_size, 1, 50)), dim=1)
+        desc_dec_txt, _ = self.lstm_dec(teacher_desc.permute(1, 0, 2), self.hidden_dec)
 
 
 
-        return x_shape, out.reshape(batch_size,128,1), shape_decoded_pc, desc_decoded_pc
+        return x_shape, out.reshape(batch_size,128,1), shape_dec_pc, desc_dec_pc, shape_dec_txt, desc_dec_txt
     
 class TripletLoss(nn.Module):
     """
@@ -356,6 +372,14 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
 
     return hardest_negative_ind
 
+def get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc):
+    loss = 0
+    return loss
+
+def get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt):
+    loss = 0
+    return loss
+
 def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir):
     
     writer = SummaryWriter(comment=writer_suffix)  # comment is a suffix, automatically names run with date+suffix
@@ -364,6 +388,9 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     criterion = TripletLoss_hard_negative(margin=margin)
 
     batch_size = net.batch_size
+    path_to_hidden = str(path_to_params + '_hidden')
+    if os.path.isfile(path_to_hidden) and num_epochs > 0:
+        torch.save(net.hidden, path_to_hidden)
     
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         net.train()
@@ -393,10 +420,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 break
             # forward + backward + optimize
             #t0 = time.time()
-            x_shape, x_desc , shape_decoded_pc, desc_decoded_pc = net(sample_batched,batch_size)
+            x_shape, x_desc, shape_dec_pc, desc_dec_pc, shape_dec_txt, desc_dec_txt = net(sample_batched,batch_size)
             #t_elapsed_fp = time.time() - t0
             # print('forward :',t_elapsed_fp,'s')
-            
+
             #t0 = time.time()
             embeddings = torch.cat((x_shape.squeeze(), x_desc.squeeze()))
             #m_distance = _pairwise_distances(embeddings)
@@ -406,7 +433,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
             #t0 = time.time()
 
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) #
+            #Losses:
+            loss_shape = get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
+            loss_txt = get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
+            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -449,10 +479,13 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             for data in valloader:
                 if len(data[0]) % batch_size != 0:
                     break
-                output_shape, output_desc = net(data, batch_size)
+                output_shape, output_desc, shape_dec_pc, desc_dec_pc, shape_dec_txt, desc_dec_txt = net(data, batch_size)
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
-                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)
+
+                loss_shape = get_shape_loss(data, shape_dec_pc, desc_dec_pc)
+                loss_txt = get_txt_loss(data, shape_dec_txt, desc_dec_txt)
+                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
                 val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
@@ -468,6 +501,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             print("Validation Loss:", val_loss_epoch / (len(val_data) - den))
             if os.path.isfile(path_to_params) and num_epochs > 0:
                 torch.save(net.state_dict(), path_to_params)  # Save model Parameters
+
+
     writer.close()
     print('Finished Training')
     return net
@@ -493,7 +528,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc, shape_decoded_pc, desc_decoded_pc = net(data,batch_size)
+            output_shape, output_desc, _, _, _, _ = net(data, batch_size)
 
             #loss = criterion(output_shape, output_desc, batch_size, margin)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
@@ -621,7 +656,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc = net(data, batch_size)
+            output_shape, output_desc, _, _, _, _ = net(data, batch_size)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
             description = np.vstack((description, np.asarray(output_desc.cpu())))
 
@@ -681,6 +716,7 @@ if __name__ == '__main__':
     
     if os.path.isfile(path_to_params):
         if os.stat(path_to_params).st_size != 0:
+            net.hidden = torch.load(str(path_to_params + '_hidden'))
             net.load_state_dict(torch.load(path_to_params, map_location=device))  #Loads pretrained net if file exists and if not empty
     else:
         open(path_to_params, "x") #Creates parameter file if it does not exist
