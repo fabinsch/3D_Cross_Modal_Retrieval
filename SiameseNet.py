@@ -703,7 +703,7 @@ if __name__ == '__main__':
     num_points = 1000
     net = SiameseNet(batch_size, num_points)
     suffix = '_test' # comment in if not coming from generating the dataset
-    path_to_params = "models/_allClasses1000obj_5000points_100epochs.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
+    path_to_params = "models/autoencoder.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
     
     # shift to GPU if available
     
