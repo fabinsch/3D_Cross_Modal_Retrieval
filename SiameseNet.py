@@ -506,7 +506,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             dist = _pairwise_distances(shape_dec_pc.reshape(-1,1))
             EMD_loss = WassersteinLossVanilla(cost=dist, lam = 1e-3, sinkhorn_iter = 3) #iter = 50
             loss_shape = EMD_loss.forward(pred=shape_dec_pc.reshape(1,-1), target=sample_batched[0][:,0:3,:].reshape(1,-1))
-            loss_shape.backward()
+            #loss_shape.backward()
             #Losses:
             #loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
             loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
