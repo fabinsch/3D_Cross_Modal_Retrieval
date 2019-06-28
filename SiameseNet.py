@@ -67,7 +67,7 @@ class SiameseNet(nn.Module):
         self.linear = nn.Linear(100, 128).to(self.device)
         self.batch_size = batch_size
         self.fc_c = nn.Linear(128, 13)
-        self.drop = nn.Dropout(0.0)
+        self.drop = nn.Dropout(0.3)
 
 
     def forward(self, x, batch_size):
@@ -379,6 +379,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         running_cl_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
+        running_bl_loss = 0.0
 
         #d_train_triplets = generate_train_triplets(data_dir_train)
 
@@ -414,7 +415,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t0 = time.time()
 
             loss_cl = classification_loss(sample_batched, shape_pred, desc_pred, class_dict, number_dict)
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_cl
+            loss_bl = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
+            loss =  loss_bl + loss_cl
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -431,14 +433,18 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
             running_cl_loss += loss_cl.detach().item()
+            running_bl_loss += loss_bl.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i_batch + 1, running_loss / (print_batch * batch_size)))
-                print('[%d, %5d] loss_cl: %.3f' %
+                print('[%d, %5d] loss_bl: %.3f' %
                       (epoch + 1, i_batch + 1, running_cl_loss / (print_batch * batch_size)))
+                print('[%d, %5d] loss_cl: %.3f' %
+                      (epoch + 1, i_batch + 1, running_bl_loss / (print_batch * batch_size)))
                 running_loss = 0.0
                 running_cl_loss = 0.0
+                running_bl_loss = 0.0
 
         writer.add_scalar('Train loss per epoch', loss_epoch / (len(train_data) - (len(train_data) % batch_size)),
                           epoch)
