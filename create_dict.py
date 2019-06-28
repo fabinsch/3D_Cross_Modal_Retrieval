@@ -287,9 +287,9 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     #TODO more triplets
     for i in range(len(keys_all)):
-        if i < len(keys_all) * 0.8:
+        if i < len(keys_all) * 0.85:
             keys_train.append(keys_all[i])
-        elif i < len(keys_all) * 0.9:
+        elif i <= len(keys_all) * 1:
             keys_val.append(keys_all[i])
         else:
             keys_test.append(keys_all[i])
@@ -348,3 +348,4 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     # look at this file (FABIAN)
     #convert_and_sample('/Users/fabischramm/Documents/ADL4CV/adl4cv/data/02747177/1cb574d3f22f63ebd493bfe20f94b6ab/models/model_normalized.obj',n=5000, write=True, ret=False)
+create_dictionary(input_folder='/data', max_elements_per_class=1000, suffix='1500p', points_per_object=1500)

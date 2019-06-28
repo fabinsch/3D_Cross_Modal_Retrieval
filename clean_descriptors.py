@@ -73,7 +73,7 @@ def check_language(se='sentence'):
 
 
 descriptions = pd.read_csv('descriptions/descriptions.csv',  encoding='ISO-8859-1',sep=',', error_bad_lines=False, header=None, skiprows=1)
-csv_file = open("descriptions/descriptions_cleaned_LT.csv", "w")
+csv_file = open("descriptions/descriptions_cleaned.csv", "w")
 csv_file.write('model_id,synset_id,description \n')
 
 for index, row in descriptions.iterrows(): #for iterating
