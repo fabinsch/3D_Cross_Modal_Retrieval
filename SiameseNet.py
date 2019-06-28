@@ -144,12 +144,12 @@ class SiameseNet(nn.Module):
         t_fp_desc = time.time() - t0
 
         # Decode embeddings to shape
-        shape_dec = self.seq1(x_shape.squeeze(2))
-        shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
-
-        desc_dec = self.seq1(out.reshape(batch_size,128))
-        desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
-
+        #shape_dec = self.seq1(x_shape.squeeze(2))
+        #shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
+        desc_dec_pc = 0
+        #desc_dec = self.seq1(out.reshape(batch_size,128))
+        #desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
+        shape_dec_pc = 0
         # Decode embeddings to text
         # fc to go from 128
         shape_dec_txt = self.linear_text_dec(x_shape.squeeze(2)) #batch_size, 50
@@ -182,7 +182,7 @@ class SiameseNet(nn.Module):
         desc_dec_txt = desc_dec_txt.reshape((r*l, self.glove_size))
         
         loss = nn.functional.cross_entropy(shape_dec_txt, gt.long()) + nn.functional.cross_entropy(desc_dec_txt, gt.long())
-       
+        
         
         return loss    
 
@@ -273,6 +273,10 @@ class pointcloudDataset(Dataset):
         
         # define dict containing GloVe embeddings
         self.embeddings_index = dict()
+        self.index_to_word = dict()
+        self.index_to_word['0'] = '<pad>'
+        self.index_to_word['1'] = '<start>'
+        self.index_to_word['2'] = '<end>'
         glove_50=os.path.join(os.getcwd(), 'glove.6B/glove.6B.50d_clean.txt')
         f = open(glove_50)
         for i, line in enumerate(f,start=3):
@@ -280,6 +284,7 @@ class pointcloudDataset(Dataset):
             word = values[0]
             coefs = np.asarray(values[1:], dtype='float32')
             self.embeddings_index[word] = (coefs, i)
+            self.index_to_word[str(i)] = word
         f.close()
         print('Loaded %s word vectors.' % len(self.embeddings_index))
         
@@ -443,7 +448,7 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
     # Get final mean triplet loss
     #triplet_loss = tf.reduce_mean(triplet_loss)
 
-    return (hardest_negative_ind, pairwise_dist)
+    return (hardest_negative_ind)
 
 
 
@@ -464,6 +469,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     for epoch in range(num_epochs):  # loop over the dataset multiple times
         net.train()
         running_loss = 0.0
+        running_txt_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
         #if (epoch%20 == 0 and epoch >0):
@@ -496,21 +502,23 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #t0 = time.time()
             embeddings = torch.cat((x_shape.squeeze(), x_desc.squeeze()))
             #m_distance = _pairwise_distances(embeddings)
-            hard_neg_ind, _ = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
+            hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
             #t_elapsed_hard_neg = time.time() - t0
             #print(t_elapsed_hard_neg)
 
             #t0 = time.time()
             
             # get the distance matrix
-            dist = _pairwise_distances(shape_dec_pc.reshape(-1,1))
-            EMD_loss = WassersteinLossVanilla(cost=dist, lam = 1e-3, sinkhorn_iter = 3) #iter = 50
-            loss_shape = EMD_loss.forward(pred=shape_dec_pc.reshape(1,-1), target=sample_batched[0][:,0:3,:].reshape(1,-1))
+            #dist = _pairwise_distances(shape_dec_pc.reshape(-1,1))
+            #EMD_loss = WassersteinLossVanilla(cost=dist, lam = 1e-3, sinkhorn_iter = 3) #iter = 50
+            #loss_shape = EMD_loss.forward(pred=shape_dec_pc.reshape(1,-1), target=sample_batched[0][:,0:3,:].reshape(1,-1))
+            
             #loss_shape.backward()
             #Losses:
+            
             #loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
             loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
+            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)  + loss_txt #+ loss_shape
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -526,11 +534,33 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             # print statistics
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
+            running_txt_loss += loss_txt.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
+                #####################
+                #alayse text decoder:
+
+                gt = sample_batched[2][0].int()
+                gt_sentence = [train_data.index_to_word[str(x)] for x in gt.tolist()]
+                print("GT Sentence:")
+                for token in gt_sentence:
+                    print(token, end=" ")
+                    
+                _, ind = desc_dec_txt.permute(1,0,2).max(2)
+                dec_sentence = [train_data.index_to_word[str(x)] for x in ind[0].tolist()]
+                print("\n Decoded Sentence:")
+                for token in dec_sentence:
+                    print(token, end=" ")
+                #####################
+                
+                print("Decoded Sentence:")
+                
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i_batch + 1, running_loss / (print_batch * batch_size)))
                 running_loss = 0.0
+                print('[%d, %5d] loss_txt: %.3f' %
+                      (epoch + 1, i_batch + 1, running_txt_loss / (print_batch * batch_size)))
+                running_txt_loss = 0.0
 
         writer.add_scalar('Train loss per epoch', loss_epoch / (len(train_data) - (len(train_data) % batch_size)),
                           epoch)
@@ -546,7 +576,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         # print("Number of validation triplets:", int(len(val_data)/2))
         net.eval()
         print('Doing Evaluation with', len(val_data), 'validation triplets')
-
+        
+        if os.path.isfile(path_to_params) and num_epochs > 0:
+            torch.save(net.state_dict(), path_to_params)  # Save model Parameters
+            
         with torch.no_grad():
             #            shape=np.zeros((batch_size,128,1))
             #            description=np.zeros((batch_size,128,1))
@@ -557,9 +590,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
 
-                loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
+                #loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
                 loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
-                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_shape + loss_txt
+                print('val_loss_txt:', loss_txt)
+                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_txt # +loss_shape
                 val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
@@ -573,8 +607,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             writer.add_scalar('Val loss per epoch', val_loss_epoch / (len(val_data) - den),
                               epoch)
             print("Validation Loss:", val_loss_epoch / (len(val_data) - den))
-            if os.path.isfile(path_to_params) and num_epochs > 0:
-                torch.save(net.state_dict(), path_to_params)  # Save model Parameters
+
 
 
     writer.close()
