@@ -26,58 +26,7 @@ from PIL import Image
 
 import torch.optim as optim
 import torchvision.transforms as transforms
-#from chamfer_distance import ChamferDistance
-#chamfer_dist = ChamferDistance() CUDA required
-
-#
-class WassersteinLossVanilla(torch.autograd.Function):
-    # taken from: https://github.com/t-vi/pytorch-tvmisc/blob/master/wasserstein-distance/Pytorch_Wasserstein.ipynb
-    def __init__(self,cost, lam = 1e-3, sinkhorn_iter = 50):
-        super(WassersteinLossVanilla,self).__init__()
-        
-        # cost = matrix M = distance matrix
-        # lam = lambda of type float > 0
-        # sinkhorn_iter > 0
-        # diagonal cost should be 0
-        self.cost = cost
-        self.lam = lam
-        self.sinkhorn_iter = sinkhorn_iter
-        self.na = cost.size(0)
-        self.nb = cost.size(1)
-        self.K = torch.exp(-self.cost/self.lam)
-        self.KM = self.cost*self.K
-        self.stored_grad = None
-        
-    def forward(self, pred, target):
-        """pred: Batch * K: K = # mass points
-           target: Batch * L: L = # mass points"""
-        assert pred.size(1)==self.na
-        assert target.size(1)==self.nb
-
-        nbatch = pred.size(0)
-        
-        u = self.cost.new(nbatch, self.na).fill_(1.0/self.na)
-        
-        for i in range(self.sinkhorn_iter):
-            v = target/(torch.mm(u,self.K.t())) # double check K vs. K.t() here and next line
-            u = pred/(torch.mm(v,self.K))
-            #print ("stability at it",i, "u",(u!=u).sum(),u.max(),"v", (v!=v).sum(), v.max())
-            if (u!=u).sum()>0 or (v!=v).sum()>0 or u.max()>1e9 or v.max()>1e9: # u!=u is a test for NaN...
-                # we have reached the machine precision
-                # come back to previous solution and quit loop
-                raise Exception(str(('Warning: numerical errrors',i+1,"u",(u!=u).sum(),u.max(),"v",(v!=v).sum(),v.max())))
-
-        loss = (u*torch.mm(v,self.KM.t())).mean(0).sum() # double check KM vs KM.t()...
-        grad = self.lam*u.log()/nbatch # check whether u needs to be transformed        
-        grad = grad-torch.mean(grad,dim=1, keepdim=True)
-        grad = grad-torch.mean(grad,dim=1, keepdim=True) # does this help over only once?
-        self.stored_grad = grad
-
-        dist = self.cost.new((loss,))
-        return dist
-    def backward(self, grad_output):
-        print (grad_output.size(), self.stored_grad.size())
-        return self.stored_grad*grad_output[0],None
+from chamfer_distance import ChamferDistance
 
 def plot_grad_flow(named_parameters):
     '''Plots the gradients flowing through different layers in the net during training.
@@ -167,7 +116,22 @@ class SiameseNet(nn.Module):
         return x_shape, out.reshape(batch_size,128,1), shape_dec_pc, desc_dec_pc, shape_dec_txt, desc_dec_txt
     
     def get_shape_loss(self, sample_batched, shape_dec_pc, desc_dec_pc):
-        loss = 0
+        if torch.cuda.is_available():
+            chamfer_dist = ChamferDistance() # CUDA required
+            
+            dist1, dist2 = chamfer_dist(sample_batched[0][:,0:3,:], shape_dec_pc)
+            loss_s = (torch.mean(dist1)) + (torch.mean(dist2))
+            #print('shape dec loss:', loss_s.item())
+            
+            dist1, dist2 = chamfer_dist(sample_batched[0][:,0:3,:], desc_dec_pc)
+            loss_d = (torch.mean(dist1)) + (torch.mean(dist2))
+            #print('text dec loss:', loss_d.item())
+            
+            loss = loss_s + loss_d
+            
+            
+        else:
+            loss = 0
         return loss
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
@@ -470,7 +434,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         net.train()
         running_loss = 0.0
         running_txt_loss = 0.0
+        running_shape_loss = 0.0
         loss_epoch = 0.0
+        loss_epoch_txt = 0.0
+        loss_epoch_shape = 0.0
         val_loss_epoch = 0.0
         #if (epoch%20 == 0 and epoch >0):
         #    lr = lr/3
@@ -511,17 +478,19 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             #Losses:
             if epoch > 3:
             
+            if epoch >= 3:
+            
                 loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
                 loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
             
            
-                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)  + loss_txt + loss_shape
+                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + 0.05*loss_txt +3*loss_shape
             
             else:
                 loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
                 loss_txt = torch.zeros(1)
                 loss_shape = torch.zeros(1)
-            
+                
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -537,7 +506,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             # print statistics
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
-            running_txt_loss += loss_txt.detach().item()
+            running_txt_loss += 0.05*loss_txt.detach().item()
+            loss_epoch_txt += 0.05*loss_txt.detach().item()
+            running_shape_loss += 3*loss_shape.detach().item()
+            loss_epoch_shape += 3*loss_shape.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 #####################
@@ -556,7 +528,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                     print(token, end=" ")
                 #####################
                 
-                print("Decoded Sentence:")
+                print("\n")
                 
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i_batch + 1, running_loss / (print_batch * batch_size)))
@@ -564,8 +536,16 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 print('[%d, %5d] loss_txt: %.3f' %
                       (epoch + 1, i_batch + 1, running_txt_loss / (print_batch * batch_size)))
                 running_txt_loss = 0.0
+                print('[%d, %5d] loss_shape: %.3f' %
+                      (epoch + 1, i_batch + 1, running_shape_loss / (print_batch * batch_size)))
+                running_shape_loss = 0.0
 
         writer.add_scalar('Train loss per epoch', loss_epoch / (len(train_data) - (len(train_data) % batch_size)),
+                          epoch)
+        
+        writer.add_scalar('Text loss per epoch', loss_epoch_txt / (len(train_data) - (len(train_data) % batch_size)),
+                          epoch)
+        writer.add_scalar('Shape loss per epoch', loss_epoch_shape / (len(train_data) - (len(train_data) % batch_size)),
                           epoch)
 
         # track validation loss per epoch
@@ -593,10 +573,14 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 embeddings = torch.cat((output_shape.squeeze(), output_desc.squeeze()))
                 hard_neg_ind = batch_hard_triplet_loss(embeddings, margin, squared=False, rand=True)
 
-                #loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
-                loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
-                #print('val_loss_txt:', loss_txt)
-                loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_txt # +loss_shape
+                if epoch >= 3:
+                    loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
+                    loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
+                    #print('val_loss_txt:', loss_txt)
+                    loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)+0.05*loss_txt+3*loss_shape
+                    
+                else:
+                    loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)
                 val_loss_epoch += loss_val.item()
             #
             #                shape = np.vstack((shape, np.asarray(output_shape)))
