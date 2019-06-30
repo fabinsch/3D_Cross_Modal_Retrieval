@@ -10,6 +10,7 @@ import os
 import json
 import pandas as pd
 import random
+from operator import itemgetter
 
 def isNaN(num):
     return num != num
@@ -195,12 +196,22 @@ def convert_and_sample(path, n=1000, write=False, ret=True):
     
 def objects_per_class(class_dict):
     class_occ = {}
+    class_samples={}
     for c in class_dict.values():
         if c in class_occ.keys():
             class_occ[c]=class_occ[c]+1
         else:
             class_occ[c]=1
     print(class_occ)
+    
+        
+    # create a dict with class as key and a list of all sample IDs as values
+    for obj in class_dict.items():
+        if obj[1] in class_samples.keys():
+            class_samples[obj[1]].append(obj[0])
+        else:
+            class_samples[obj[1]]=[obj[0]]
+    return (class_occ, class_samples)
 
 def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_object):
 # function to convert the obj data to ply and save as json file
@@ -213,15 +224,15 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     for i, subdir in enumerate(os.listdir(data_dir)):
 
-    #   if i > 2: #just look at 4 classes
-    #       break
+#       if i > 3: #just look at 4 classes
+#           break
 
        if subdir=='.DS_Store':
            pass
 
        else:
            for counter, object in enumerate(os.listdir(data_dir+'/'+subdir)):
-               if counter > max_elements_per_class:
+               if counter >= max_elements_per_class:
                    break
                if object=='.DS_Store':
                    pass
@@ -238,7 +249,7 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     # get how many objects per class
 
-    objects_per_class(class_dict)
+    class_occ, class_samples = objects_per_class(class_dict)
 
     with open('class_dict'+ suffix +'.json', 'w') as fp:
         json.dump(class_dict, fp)
@@ -277,7 +288,7 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     # split into train, val, test with ratio (80,10,10)
 
-    np.random.seed(10)
+    #np.random.seed(10)
     #random.seed(10)
 
     keys_all = np.random.permutation(list(d.keys()))
@@ -285,7 +296,7 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
     keys_val = []
     keys_test = []
 
-    #TODO more triplets
+    ######### define split normal version ############################################
     for i in range(len(keys_all)):
         if i < len(keys_all) * 0.8:
             keys_train.append(keys_all[i])
@@ -293,7 +304,27 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
             keys_val.append(keys_all[i])
         else:
             keys_test.append(keys_all[i])
+    #################################################################################
 
+    ######## define split to hold out 100 val samples per class #####################
+#    for c in class_occ.keys():
+#        n = class_occ[c]
+#        objects = list(np.random.permutation(class_samples[c])) # random sort of objects in class
+#        if n>100: # check if at least 100 are available
+#            train = n-100
+#        else:
+#            train = int(n*0.8)
+#        for i in range(train):
+#            keys_train.append(objects.pop(0)) # always take the first and pop it out
+#            
+#        for i in range(n-train):
+#            keys_val.append(objects.pop(0))
+#        print()
+#        print(c, ':', train, 'train samples appended')
+#        print(c, ':', n-train, 'val samples appended')
+#        print()
+     #################################################################################
+        
 
     #keys_train_perm = np.random.permutation(keys_train)
     #keys_val_perm = np.random.permutation(keys_val)
@@ -334,6 +365,7 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     ##
     #
+    print()
     print("Created following files:")
     print('data_train'+ suffix +'.json')
     print('data_val'+ suffix +'.json')
@@ -348,3 +380,5 @@ def create_dictionary(input_folder, max_elements_per_class, suffix, points_per_o
 
     # look at this file (FABIAN)
     #convert_and_sample('/Users/fabischramm/Documents/ADL4CV/adl4cv/data/02747177/1cb574d3f22f63ebd493bfe20f94b6ab/models/model_normalized.obj',n=5000, write=True, ret=False)
+
+#create_dictionary(input_folder='/data', max_elements_per_class=10e9, suffix='_100VAL', points_per_object=2000)
