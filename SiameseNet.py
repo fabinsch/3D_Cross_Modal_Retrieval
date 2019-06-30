@@ -144,12 +144,12 @@ class SiameseNet(nn.Module):
         t_fp_desc = time.time() - t0
 
         # Decode embeddings to shape
-        #shape_dec = self.seq1(x_shape.squeeze(2))
-        #shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
-        desc_dec_pc = 0
-        #desc_dec = self.seq1(out.reshape(batch_size,128))
-        #desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
-        shape_dec_pc = 0
+        shape_dec = self.seq1(x_shape.squeeze(2))
+        shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
+        #desc_dec_pc = 0
+        desc_dec = self.seq1(out.reshape(batch_size,128))
+        desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
+        #shape_dec_pc = 0
         # Decode embeddings to text
         # fc to go from 128
         shape_dec_txt = self.linear_text_dec(x_shape.squeeze(2)) #batch_size, 50
@@ -508,17 +508,20 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
             #t0 = time.time()
             
-            # get the distance matrix
-            #dist = _pairwise_distances(shape_dec_pc.reshape(-1,1))
-            #EMD_loss = WassersteinLossVanilla(cost=dist, lam = 1e-3, sinkhorn_iter = 3) #iter = 50
-            #loss_shape = EMD_loss.forward(pred=shape_dec_pc.reshape(1,-1), target=sample_batched[0][:,0:3,:].reshape(1,-1))
-            
-            #loss_shape.backward()
             #Losses:
+            if epoch > 3:
             
-            #loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
-            loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
-            loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)  + loss_txt #+ loss_shape
+                loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
+                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
+            
+           
+                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)  + loss_txt + loss_shape
+            
+            else:
+                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
+                loss_txt = torch.zeros(1)
+                loss_shape = torch.zeros(1)
+            
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
 
@@ -592,7 +595,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
                 #loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
                 loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
-                print('val_loss_txt:', loss_txt)
+                #print('val_loss_txt:', loss_txt)
                 loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind) + loss_txt # +loss_shape
                 val_loss_epoch += loss_val.item()
             #
