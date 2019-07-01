@@ -73,13 +73,13 @@ class SiameseNet(nn.Module):
         self.hidden_ct = (torch.randn(2, batch_size, 128).to(self.device))
         self.lstm_dec = nn.LSTM(input_size=50, hidden_size=128, num_layers=2).to(self.device)
 
-        self.seq1 = torch.nn.Sequential(
+        '''self.seq1 = torch.nn.Sequential(
         torch.nn.Linear(128, 512),
         torch.nn.ReLU(),
         torch.nn.Linear(512, 512),
         torch.nn.ReLU(),
         torch.nn.Linear(512, 3*self.num_points),
-        ).to(self.device)
+        ).to(self.device)'''
 
     def get_start_vector(self):
         vec = torch.zeros(self.batch_size,50)
@@ -243,10 +243,10 @@ class pointcloudDataset(Dataset):
         self.index_to_word = dict()
         self.index_to_word['0'] = '<pad>'
         #self.index_to_word['1'] = '<start>'
-        #self.index_to_word['1'] = '<end>'
+        self.index_to_word['1'] = '<end>'
         glove_50=os.path.join(os.getcwd(), 'glove.6B/glove.6B.50d_clean.txt')
         f = open(glove_50)
-        for i, line in enumerate(f,start=1):
+        for i, line in enumerate(f,start=2):
             values = line.split()
             word = values[0]
             coefs = np.asarray(values[1:], dtype='float32')
