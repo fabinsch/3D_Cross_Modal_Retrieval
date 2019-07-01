@@ -345,18 +345,18 @@ class PointNet2ClsSsg(nn.Module):
         l1_xyz, l1_points = self.sa1(xyz, rgb)
         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)
         l3_xyz, l3_points = self.sa3(l2_xyz, l2_points)
-        x = l3_points.view(B, 1024)
+        x_intermediate = l3_points.view(B, 1024)
         #x = F.relu(self.fc1(x))
         #x = F.relu(self.fc2(x))
         
         #x = self.drop1(F.relu(self.bn1(self.fc1(x))))
         #x = self.drop2(F.relu(self.bn2(self.fc2(x))))
-        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.relu(self.bn1(self.fc1(x_intermediate)))
         x = F.relu(self.bn2(self.fc2(x)))
         
         x = self.fc3(x)
         #x = F.log_softmax(x, -1)
-        return x.unsqueeze(2)
+        return (x.unsqueeze(2), x_intermediate)
 
 
 if __name__ == '__main__':
