@@ -83,8 +83,8 @@ class SiameseNet(nn.Module):
 
     def get_start_vector(self):
         vec = torch.zeros(self.batch_size,50)
-        vec[np.arange(batch_size), 0] = 0.1
-        vec[np.arange(batch_size), 1] = -0.1
+        vec[np.arange(self.batch_size), 0] = 0.1
+        vec[np.arange(self.batch_size), 1] = -0.1
         return vec.unsqueeze(1).to(self.device)
 
     def forward(self, x, batch_size):
@@ -273,7 +273,7 @@ class pointcloudDataset(Dataset):
         #t0=time.time()
         gt = torch.zeros(21)
         #gt[0] = 1
-        gt[-1] = 2
+        gt[-1] = 1
         for k, word in enumerate(self.objects_description[idx]):
             if i < clipping_length:
                 embedding_vector, gt[k] = self.embeddings_index.get(word)
@@ -483,13 +483,13 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             if epoch >= 0:
             
                 #loss_shape = net.get_shape_loss(sample_batched, shape_dec_pc, desc_dec_pc)
-                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
-                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + 0.1*loss_txt #+3*loss_shape
-            
+                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt) * 1
+                loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_txt #+3*loss_shape
+         
             else:
                 loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind)
                 loss_txt = torch.zeros(1)
-                loss_shape = torch.zeros(1)
+                #loss_shape = torch.zeros(1)
                 
             #t_elapsed_loss = time.time() - t0
             # print('loss    :',t_elapsed_loss,'s')
@@ -575,9 +575,9 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
                 if epoch >= 0:
                     #loss_shape = net.get_shape_loss(data, shape_dec_pc, desc_dec_pc)
-                    loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
+                    loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt) * 1
                     #print('val_loss_txt:', loss_txt)
-                    loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)+0.05*loss_txt #+3*loss_shape
+                    loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)+loss_txt #+3*loss_shape
                     
                 else:
                     loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)
