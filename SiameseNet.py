@@ -158,7 +158,7 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
-        return loss_shape_dec+loss_shape_dec
+        return 2*(loss_shape_dec+loss_shape_dec)
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
         gt = sample_batched[2]
@@ -765,7 +765,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc, _, _, _, _ = net(data, batch_size)
+            output_shape, output_desc, _, _, _, _, _ = net(data, batch_size)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
             description = np.vstack((description, np.asarray(output_desc.cpu())))
 
