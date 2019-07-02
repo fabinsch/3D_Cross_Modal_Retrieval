@@ -358,13 +358,14 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         running_loss = 0.0
         loss_epoch = 0.0
         val_loss_epoch = 0.0
-        #if (epoch%20 == 0 and epoch >0):
-        #    lr = lr/3
-        #    optimizer = optim.Adam(net.parameters(), lr)
-        #d_train_triplets = generate_train_triplets(data_dir_train)
+        if (epoch%50 == 0 and epoch >0):
+            lr_adapted1 = lr/2
+            optimizer = optim.Adam(net.parameters(), lr_adapted1)
+            
+        if (epoch%90 == 0 and epoch >0):
+            lr_adapted2 = lr*0.1
+            optimizer = optim.Adam(net.parameters(), lr_adapted2)
 
-#        train_data = pointcloudDataset(d_data=d_train_triplets, json_data=data_dir_train, root_dir=working_dir,
-#                                       mode='train')
         train_data = pointcloudDataset(json_data=data_dir_train, root_dir=working_dir,
                                        mode='train')
         trainloader = DataLoader(train_data, batch_size=batch_size,
