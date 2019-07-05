@@ -268,7 +268,7 @@ class pointcloudDataset(Dataset):
             self.embeddings_index[word] = (coefs, i)
             self.index_to_word[str(i)] = word
         f.close()
-        print('Loaded %s word vectors.' % len(self.embeddings_index))
+        #print('Loaded %s word vectors.' % len(self.embeddings_index))
         
 
     def __len__(self):
@@ -292,8 +292,9 @@ class pointcloudDataset(Dataset):
         for k, word in enumerate(self.objects_description[idx]):
             if i < clipping_length:
                 embedding_vector, gt[k] = self.embeddings_index.get(word)
-                d_vector.append(embedding_vector)
-                i += 1
+                if embedding_vector is not None:
+                    d_vector.append(embedding_vector)
+                    i += 1
             else:
                 break
 
@@ -473,7 +474,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                                        mode='train')
         trainloader = DataLoader(train_data, batch_size=batch_size,
                                  shuffle=True)
-        print("Number of training triplets:", int(len(train_data) / 2))
+        print("Number of training triplets:", int(len(train_data)))
 
         # fix train val test sets once in one scipt, but not triplets
         # Execute triplet generation for train here without random seed and load epoch data!
@@ -633,7 +634,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     #
     print("Number of validation triplets:", int(len(val_data)))
     net.eval()
-    print('Doing Evaluation')
+    #print('Doing Evaluation')
     #
     with torch.no_grad():
         shape = np.zeros((batch_size, 128, 1))
@@ -668,9 +669,9 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
         if i in row:
             hit_5 = hit_5 +1
 
-    print('RR@1: ', hit_1 / len(indices))
+    #print('RR@1: ', hit_1 / len(indices))
 
-    print('RR@5:  ', hit_5/len(indices))
+    #print('RR@5:  ', hit_5/len(indices))
 
     y_true = list(range(len(indices)))
     mat = np.zeros((len(y_true), len(y_true)))
@@ -681,17 +682,16 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
             fac = fac / 1.1
 
     ndcg_5 = ndcg_score(y_true, mat, k=5)
-    print('NDCG@5:', ndcg_5)
+
 
     nbrs = NearestNeighbors(n_neighbors=10, algorithm='auto').fit(shape)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(description)
 
-    hit_1 = 0
     hit_10 = 0
     for i, row in enumerate(indices):
         if i in row:
             hit_10 = hit_10 + 1
-    print('RR@510:  ', hit_10 / len(indices))
+    #print('RR@10:  ', hit_10 / len(indices))
 
     y_true = list(range(len(indices)))
     mat = np.zeros((len(y_true), len(y_true)))
@@ -702,7 +702,8 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
             fac = fac / 1.1
 
     ndcg_10 = ndcg_score(y_true, mat, k=10)
-    print('NDCG@10:', ndcg_10)
+    #print('NDCG@5:', ndcg_5)
+    #print('NDCG@10:', ndcg_10)
 
     scores = [hit_1 / len(indices),  hit_5 / len(indices),  hit_10 / len(indices), ndcg_5, ndcg_10]
 
