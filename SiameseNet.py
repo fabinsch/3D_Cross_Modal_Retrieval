@@ -158,7 +158,7 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
-        return loss_shape_dec+loss_shape_dec
+        return 2*(loss_shape_dec+loss_shape_dec)
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
         gt = sample_batched[2]
@@ -457,9 +457,14 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         loss_epoch_txt = 0.0
         loss_epoch_shape = 0.0
         val_loss_epoch = 0.0
-        #if (epoch%20 == 0 and epoch >0):
-        #    lr = lr/3
-        #    optimizer = optim.Adam(net.parameters(), lr)
+        if (epoch%50 == 0 and epoch >0):
+            lr_adapted1 = lr/2
+            optimizer = optim.Adam(net.parameters(), lr_adapted1)
+            
+        if (epoch%90 == 0 and epoch >0):
+            lr_adapted2 = lr*0.1
+            optimizer = optim.Adam(net.parameters(), lr_adapted2)
+        
         #d_train_triplets = generate_train_triplets(data_dir_train)
 
 #        train_data = pointcloudDataset(d_data=d_train_triplets, json_data=data_dir_train, root_dir=working_dir,
@@ -652,45 +657,20 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     # create ground truth and prediction list
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    nbrs = NearestNeighbors(n_neighbors=5, algorithm='auto').fit(shape)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(description)
 
-    '''y_true = []
-    y_pred = []
-    y_pred2 = [-1] * len(indices)
-    for i, ind in enumerate(indices):
-        print(i, indices[i])
-        y_true.append(i)
-        y_pred.append(indices[i])
-
-    # get recall and precision for top k retrievals
-    # create y_pred2 by checking if true label is in top k retrievals
-    if k != 1:
-        for i, pred in enumerate(y_pred):
-            for s in pred[:k]:
-                if s == [y_true[i]]:
-                    y_pred2[i] = s
-                    break
-    else:
-        y_pred2=y_pred
-
-    precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
-                                                                         average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
-    print('precision:', precision)'''
-    #print('recall:', recall)
-    #print('fscore:', fscore)
-
     hit_1 = 0
-    hit_k = 0
+    hit_5 = 0
     for i, row in enumerate(indices):
         if (i==row[0]):
             hit_1 = hit_1 +1
         if i in row:
-            hit_k = hit_k +1
+            hit_5 = hit_5 +1
 
-    print('RR@ 1 = ', hit_1 / len(indices))
+    print('RR@1: ', hit_1 / len(indices))
 
-    print('RR@', k, '= ', hit_k/len(indices))
+    print('RR@5:  ', hit_5/len(indices))
 
     y_true = list(range(len(indices)))
     mat = np.zeros((len(y_true), len(y_true)))
@@ -700,9 +680,31 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
             mat[i][el] = fac
             fac = fac / 1.1
 
+    ndcg_5 = ndcg_score(y_true, mat, k=5)
+    print('NDCG@5:', ndcg_5)
 
-    ndcg = ndcg_score(y_true, mat, k=k)
-    print('NDCG:', ndcg)
+    nbrs = NearestNeighbors(n_neighbors=10, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    distances, indices = nbrs.kneighbors(description)
+
+    hit_1 = 0
+    hit_10 = 0
+    for i, row in enumerate(indices):
+        if i in row:
+            hit_10 = hit_10 + 1
+    print('RR@510:  ', hit_10 / len(indices))
+
+    y_true = list(range(len(indices)))
+    mat = np.zeros((len(y_true), len(y_true)))
+    for i, row in enumerate(indices):
+        fac = 0.9
+        for el in row:
+            mat[i][el] = fac
+            fac = fac / 1.1
+
+    ndcg_10 = ndcg_score(y_true, mat, k=10)
+    print('NDCG@10:', ndcg_10)
+
+    scores = [hit_1 / len(indices),  hit_5 / len(indices),  hit_10 / len(indices), ndcg_5, ndcg_10]
 
     # %%
 
@@ -749,6 +751,8 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     # close tensorboard writer
     writer.close()
 
+    return scores
+
 def retrieval(net, data_dir_val, working_dir,print_nn=False):
     batch_size = net.batch_size
     #d_val_samples = generate_val_triplets(data_dir_val)
@@ -765,7 +769,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
         for data in valloader:
             if len(data[0]) % batch_size != 0:
                 break
-            output_shape, output_desc, _, _, _, _ = net(data, batch_size)
+            output_shape, output_desc, _, _, _, _, _ = net(data, batch_size)
             shape = np.vstack((shape, np.asarray(output_shape.cpu())))
             description = np.vstack((description, np.asarray(output_desc.cpu())))
 
