@@ -178,7 +178,7 @@ class pointcloudDataset(Dataset):
             coefs = np.asarray(values[1:], dtype='float32')
             self.embeddings_index[word] = coefs
         f.close()
-        print('Loaded %s word vectors.' % len(self.embeddings_index))
+        #print('Loaded %s word vectors.' % len(self.embeddings_index))
         
 
     def __len__(self):
@@ -472,7 +472,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     #
     print("Number of validation triplets:", int(len(val_data)))
     net.eval()
-    print('Doing Evaluation')
+    #print('Doing Evaluation')
     #
     with torch.no_grad():
         shape = np.zeros((batch_size, 128, 1))
@@ -492,49 +492,24 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
     description = description[batch_size:, :, :].reshape(len(description) - batch_size, np.shape(shape[1])[0])
 
-    # %%
+
     # create ground truth and prediction list
 
     # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
-    nbrs = NearestNeighbors(n_neighbors=k, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    nbrs = NearestNeighbors(n_neighbors=5, algorithm='auto').fit(shape)  # check that nbrs are sorted
     distances, indices = nbrs.kneighbors(description)
 
-    '''y_true = []
-    y_pred = []
-    y_pred2 = [-1] * len(indices)
-    for i, ind in enumerate(indices):
-        print(i, indices[i])
-        y_true.append(i)
-        y_pred.append(indices[i])
-
-    # get recall and precision for top k retrievals
-    # create y_pred2 by checking if true label is in top k retrievals
-    if k != 1:
-        for i, pred in enumerate(y_pred):
-            for s in pred[:k]:
-                if s == [y_true[i]]:
-                    y_pred2[i] = s
-                    break
-    else:
-        y_pred2=y_pred
-
-    precision, recall, fscore, support = precision_recall_fscore_support(y_true, y_pred2,
-                                                                         average='micro')  # verify that micro is correct, I think for now it's what we need  when just looking at objects from the same class
-    print('precision:', precision)'''
-    #print('recall:', recall)
-    #print('fscore:', fscore)
-
     hit_1 = 0
-    hit_k = 0
+    hit_5 = 0
     for i, row in enumerate(indices):
         if (i==row[0]):
             hit_1 = hit_1 +1
         if i in row:
-            hit_k = hit_k +1
+            hit_5 = hit_5 +1
 
-    print('RR@ 1 = ', hit_1 / len(indices))
+    #print('RR@1: ', hit_1 / len(indices))
 
-    print('RR@', k, '= ', hit_k/len(indices))
+    #print('RR@5:  ', hit_5/len(indices))
 
     y_true = list(range(len(indices)))
     mat = np.zeros((len(y_true), len(y_true)))
@@ -544,9 +519,31 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
             mat[i][el] = fac
             fac = fac / 1.1
 
+    ndcg_5 = ndcg_score(y_true, mat, k=5)
 
-    ndcg = ndcg_score(y_true, mat, k=k)
-    print('NDCG:', ndcg)
+
+    nbrs = NearestNeighbors(n_neighbors=10, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    distances, indices = nbrs.kneighbors(description)
+
+    hit_10 = 0
+    for i, row in enumerate(indices):
+        if i in row:
+            hit_10 = hit_10 + 1
+    #print('RR@10:  ', hit_10 / len(indices))
+
+    y_true = list(range(len(indices)))
+    mat = np.zeros((len(y_true), len(y_true)))
+    for i, row in enumerate(indices):
+        fac = 0.9
+        for el in row:
+            mat[i][el] = fac
+            fac = fac / 1.1
+
+    ndcg_10 = ndcg_score(y_true, mat, k=10)
+    #print('NDCG@5:', ndcg_5)
+    #print('NDCG@10:', ndcg_10)
+
+    scores = [hit_1 / len(indices),  hit_5 / len(indices),  hit_10 / len(indices), ndcg_5, ndcg_10]
 
     # %%
 
