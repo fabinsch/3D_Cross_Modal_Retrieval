@@ -21,7 +21,7 @@ from matplotlib.lines import Line2D
 from tensorboardX.writer import SummaryWriter
 
 from generate_triplets import generate_train_triplets, generate_val_triplets
-from create_triplet_dataset import load_train_data, load_val_data, load_val_samples, load_ret_data
+from create_triplet_dataset import load_train_data, load_val_data, load_val_samples, load_ret_data, load_test_data
 from PIL import Image
 
 import torch.optim as optim
@@ -235,19 +235,21 @@ class TripletLoss_hard_negative(nn.Module):
 class pointcloudDataset(Dataset):
     """Point cloud dataset"""
 
-    def __init__(self, json_data, root_dir, mode):
+    def __init__(self, json_data, root_dir, mode, desc_num=1):
         with open(json_data, 'r') as fp:
             self.data = json.load(fp)
-        
-        if mode=='train':
+
+        if mode == 'train':
             self.objects_shape, self.objects_description, self.train_IDs = load_train_data(self.data)
-       
-        if mode=='val':
-#            self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data, d_data)
+
+        if mode == 'val':
             self.objects_shape, self.objects_description, self.train_IDs = load_val_data(self.data)
-    
-        if mode=='ret':
+
+        if mode == 'ret':
             self.objects_shape, self.objects_description, self.train_IDs = load_ret_data(self.data)
+
+        if mode == 'test':
+            self.objects_shape, self.objects_description, self.train_IDs = load_test_data(self.data, desc_num)
 
 
         self.root_dir = root_dir
@@ -795,6 +797,93 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
         y_pred.append(indices[i])
     return y_true, y_pred, list(val_data.train_IDs), shape, description
 
+
+def test(net, margin, data_dir_val, working_dir):
+    # d_val_triplets = generate_val_triplets(data_dir_val)
+    batch_size = net.batch_size
+    criterion = TripletLoss(margin=margin)
+    net.eval()
+    with torch.no_grad():
+        shape = np.zeros((batch_size, 128, 1))
+        description = np.zeros((batch_size, 128, 1))
+        for desc_num in range(5):
+            val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='test', desc_num=desc_num)
+            valloader = DataLoader(val_data, batch_size=batch_size,
+                                   shuffle=False)  # TODO must be False
+            for data in valloader:
+                if len(data[0]) % batch_size != 0:
+                    break
+                output_shape, output_desc, _, _, _, _, _  = net(data, batch_size)
+
+                # loss = criterion(output_shape, output_desc, batch_size, margin)
+                if desc_num == 0:
+                    shape = np.vstack((shape, np.asarray(output_shape.cpu())))
+
+                description = np.vstack((description, np.asarray(output_desc.cpu())))
+
+
+    # reshape output predictions for kNN
+    shape = shape[batch_size:, :, :].reshape(len(shape) - batch_size, np.shape(shape[1])[0])
+    description = description[batch_size:, :, :].reshape(len(description) - batch_size, np.shape(shape[1])[0])
+
+    number_desc = len(description)
+    number_shapes = len(shape)
+
+    # create ground truth and prediction list
+
+    # get 10 nearest neighbor, could also be just k nearest but to experiment left at 10
+    nbrs = NearestNeighbors(n_neighbors=5, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    distances, indices = nbrs.kneighbors(description)
+
+    hit_1 = 0
+    hit_5 = 0
+
+    gt = [list(range(number_shapes)) for x in range(int(number_desc / number_shapes))]
+    gt = [item for sublist in gt for item in sublist]
+
+    for i, row in enumerate(indices):
+        if (gt[i] == row[0]):
+            hit_1 = hit_1 + 1
+        if gt[i] in row:
+            hit_5 = hit_5 + 1
+
+    # print('RR@1: ', hit_1 / len(indices))
+
+    # print('RR@5:  ', hit_5/len(indices))
+
+    y_true = gt  # list(range(len(indices)))
+    mat = np.zeros((len(y_true), len(y_true)))
+    for i, row in enumerate(indices):
+        fac = 0.9
+        for el in row:
+            mat[i][el] = fac
+            fac = fac / 1.1
+
+    ndcg_5 = ndcg_score(y_true, mat, k=5)
+
+    nbrs = NearestNeighbors(n_neighbors=10, algorithm='auto').fit(shape)  # check that nbrs are sorted
+    distances, indices = nbrs.kneighbors(description)
+
+    hit_10 = 0
+    for i, row in enumerate(indices):
+        if gt[i] in row:
+            hit_10 = hit_10 + 1
+    # print('RR@10:  ', hit_10 / len(indices))
+
+    # y_true = list(range(len(indices)))
+    mat = np.zeros((len(y_true), len(y_true)))
+    for i, row in enumerate(indices):
+        fac = 0.9
+        for el in row:
+            mat[i][el] = fac
+            fac = fac / 1.1
+
+    ndcg_10 = ndcg_score(y_true, mat, k=10)
+    # print('NDCG@5:', ndcg_5)
+    # print('NDCG@10:', ndcg_10)
+
+    scores = [hit_1 / len(indices), hit_5 / len(indices), hit_10 / len(indices), ndcg_5, ndcg_10]
+    return scores
 if __name__ == '__main__':
     
     #a = torch.rand(6,2)
@@ -848,11 +937,12 @@ if __name__ == '__main__':
     lr = 1e-3
     k=5
     
-    net = train(net, num_epochs, margin, lr, print_batch, 
-                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
+    #net = train(net, num_epochs, margin, lr, print_batch,
+    #                       data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
     
     # Validation
     margin = 0.5
     writer_suffix = 'understanding_HN_1_Val'
-    val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir,k=k, images=False)
+    #val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir,k=k, images=False)
+    test(net, margin, data_dir_val, working_dir)
 

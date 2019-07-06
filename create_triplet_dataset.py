@@ -130,8 +130,24 @@ def load_val_samples(data, triplets_val):
             triplets_id_val.append(key)
 
     return triplets_shape_val, triplets_description_val, triplets_id_val
-        
-    
+
+
+def load_test_data(data, desc_ind):
+    triplets_shape_val = []
+    triplets_description_val = []
+    triplets_id_val = []
+
+    for key, row in data.items():
+        triplets_shape_val.append(data[key][0])
+        num_desc = len(data[key]) - 1
+        if (num_desc) > desc_ind:
+            which_desc = desc_ind + 1
+        else:
+            which_desc = num_desc
+        triplets_description_val.append(data[key][which_desc])
+        triplets_id_val.append(key)
+
+    return triplets_shape_val, triplets_description_val, triplets_id_val
 #
 #triplets_shape_test = []
 #triplets_description_test = []
