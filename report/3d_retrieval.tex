@@ -1,0 +1,159 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\usepackage[breaklinks=true,bookmarks=false]{hyperref}
+
+\cvprfinalcopy % *** Uncomment this line for the final submission
+
+%\def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+% Pages are numbered in submission mode, and unnumbered in camera-ready
+%\ifcvprfinal\pagestyle{empty}\fi
+\setcounter{page}{1}
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{3D Cross-modal Retrieval: Bridging the Gap between 3D Objects and Natural Language Descriptions}
+
+\author{Nick Harmening\\
+Technical University Munich\\
+%Arcisstrasse 21, 80333 Munich\\
+{\tt\small n.harmening@tum.de}
+% For a paper whose authors are all at the same institution,
+% omit the following lines up until the closing ``}''.
+% Additional authors and addresses can be added with ``\and'',
+% just like the second author.
+% To save space, use either the email address or home page, not both
+\and
+Fabian Schramm\\
+Technical University Munich\\
+%Arcisstrasse 21, 80333 Munich\\
+{\tt\small fabian.schramm@tum.de}
+}
+
+\maketitle
+%\thispagestyle{empty}
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+   We present a method for cross-modal retrieval based on colored point clouds of 3D objects and natural freeform descriptions. For said purpose, a Siamese neural network including a triplet loss is used and an advanced architecture with text and shape autoencoders could further improve the performance. The goal is to construct a meaningful embedding space where corresponding 3D shapes and description are kept close together. An input query as freeform text can therefore retrieve the best corresponding 3D shape.
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+
+In human cognition visual and auditory impulses are strongly connected and correlated. Language is used to communicate, describe our environment and convey meaningful messages. The visual modality perceives our surroundings at interprets it. In recent years, there were a lot of new developments in the field of computer vision and natural language processing. Both fields separately experienced a remarkable boost with the fast development of new deep neural networks and methods proposed in the last years. Our approach aims at bridging the gap between the two modalities of 3d shapes and natural text descriptions.
+\begin{figure}[h]%[!htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{fig1.pdf}
+	\caption[]{Examples of three different instances and each represented in two modalities}
+	\label{fig:examples}
+\end{figure}
+\autoref{fig:examples} depicts two ways of describing the same instance in different modalities, \eg the first instances is a wooden bookshelf. In order to convey the context of that instance, either a natural language description or a colored 3D shape could be used. Using both information and connecting the context from text and shape allows us the infer more details about an instance. The goal for the network we develop is the understand the natural language description, the 3D shape in form of a point cloud and map both into one combined embedding space were corresponding text and shape stay close together. This embedding space can be used after training for a user to input a text query and retrieve a corresponding 3D shape or vice versa. We train the shape and text encoding of our network jointly in an end-to-end fashion. 
+
+\section{Related Work}
+Chen \etal \cite{chen2018text2shape} use voxelized 3D shapes and natural language descriptions as input to their neural network in order the learn joint embeddings. Their models combines learning by association and metric learning approaches and and hereby is able to capture implicit cross-modal connections. A round trip loss is introduced and further tasks like generating color 3D shapes form text is tackled. In contrast, the focus of our work is only the 3D shape retrieval and most important our approach is based on point clouds instead of voxels. 
+
+Han \etal \cite{han2018seq2seq} propose a view-based model to learn cross-modal representations by joint reconstruction and prediction of view and word sequence. They thereby overcome the issue of lacking detailed geometry information of the 3D shapes. Again 3D voxels are used to represent a 3D object and there differing from our method which is based on colored point clouds.  
+
+Qi \etal develop a deep neural network called PointNet \cite{qi2017pointnet} to perform classification and semantic segmentation with point clouds. The network is designed to directly consume an unordered point cloud as input, without converting to other 3D representations such as voxel grids first. Additionally they introduce Pointnet++ \cite{bibid} which is a hierarchical application of PointNet to captures local context. PointNet++ achieves better performance and generalizability in complex scenes and is able to deal with non-uniform sampling density. A combination of different modalities is not content of these two works. 
+
+\section{Dataset}
+Our method is learning a joint embedding of freeform text descriptions and 3D shapes. To train and evaluate the method we use the ShapeNet \cite{Chang2015Shapenet} dataset, which is a collecting of human-designed 3D CAD objects. We use 13 categories of the ShapeNetCore Dataset, which is a subset of the full ShapeNet dataset with single clean 3D models and manually verified category and alignment annotations. In total there are around 27,000 objects. Additionally we have 5 natural language descriptions per 3D object. The 3D shapes are represented as colored meshes in the obj file format plus a mat material file which partly also posse a texture.
+The first task of our data pre-processing pipeline is a conversion and sampling step from said meshes, which are stored as vertices and faces, into 3D point clouds of selectable size. The appearance of an original 3D CAD model and of resulting point clouds with different numbers of sampling points can be seen in \autoref{fig:sampling}.
+\begin{figure}[t]%[!htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{fig2.pdf}
+	\caption[]{3D point cloud sampling from CAD model with different numbers of sample points}
+	\label{fig:sampling}
+\end{figure}
+Denote that a representation of only 1,000 is quite sparse, whereas 10,000 sampling points are definitely a very dense point cloud. As one of the reasons why we use point clouds is to be remarkable faster and lightweighter than a dense voxel representation, we decided to work with 2000 sampling points. 
+
+The descriptions for the 3D CAD model were collected in a crowed-sourcing process and therefore contain spelling mistakes and grammatical errors. We clean all descriptions by using the LanguageTool \footnote{https://languagetool.org}, than split the sentence into tokens and discard low frequent words with less than three occurrences. By doing so we obtain a vocabulary size of 5197 words. All sentences that we feed into out text encoder should be of the same size and therefor we analyze the descriptions length. The average length of the around 14,000 descriptions is 12.4 words and by cutting every description which is longer than 20 words we still maintain 89\% of all descriptions completely. All descriptions shorter than 20 words are padded with zeros. The natural language words are each converted into arrays of 50 float numbers by using the pre-trained word embedding GloVe \cite{pennington2014glove} in the version Wikipedia 2014 + Gigaword 5 containing 6B tokens and 400K words. When searching for matching GloVe embeddings for our vocabulary we end up with 5105 unique word embedding vectors.
+
+\section{Method}
+We use a siamese neural network with a text and shape decoder which are mapping to the same joint embedding space of size $\mathbb{R}^{128}$. In that space the goal is to keep corresponding text and shape embeddings close together and separate text and shape embeddings of different instances. For that purpose the triplet loss with margin is used whereby the anchor can either by a shape or a text. 
+\subsection{Baseline}
+\begin{figure}[t]%[!htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{fig3.pdf}
+	\caption[]{Our baseline model consisting of text and shape decoder}
+	\label{fig:baseline}
+\end{figure}
+The baseline configuration of our model is shown in \autoref{fig:baseline} and shows the process from 3D shape and text description to embedding of size 128. The text encoder is a two layer LSTM to capture the temporal information of the description with a fully-connected layer at the end to project in the space $\mathbb{R}^{128}$ and as shape encoder we use a slightly adapted version of PointNett++ \cite{qi2017Pointnet++}. This networks allows to directly consume on 3D point clouds were as additional feature we add the RGB color values of each point. The colored point clouds are embedding into the $\mathbb{R}^{128}$ space and compared to the text embeddings using a triplet loss. The formulation of the loss is as follows:
+\begin{equation}
+\label{eqn:1}
+\mathcal{L}_{baseline} = \mathcal{L}_{1} + \mathcal{L}_{2}
+\end{equation}
+As denoted in eqn. (\ref{eqn:1}) we have two triplet loss combined to the final baseline loss. First, we have a shape as an anchor $A^S$ and therefore one text embeddings as positive $P^S$, coming from one of the five descriptions of the shape, and one text embedding as negative $N^T$, coming from a shape different to the anchor (\ref{eqn:2}). The second part uses one of the five descriptions of an instances as an anchor and therefore the corresponding shape as positive and one other shape as negative (\ref{eqn:3}). A margin $m$ is added in order to force a certain distance between anchor-positive and anchor-negative and saturating afterwards. 
+\begin{equation}
+	\label{eqn:2}
+	\resizebox{.9 \linewidth}{!}
+	{ $
+	\mathcal{L}_1(A^S, P^T, N^T) = \max \left( 0, \left\Vert A^S - P^T\right\Vert^2 - \left\Vert A^S - N^T\right\Vert^2 +m \right) $}
+\end{equation}
+\begin{equation}
+\label{eqn:3}
+\resizebox{.9 \linewidth}{!}
+{ $
+	\mathcal{L}_2(A^T, P^S, N^S) = \max \left( 0, \left\Vert A^T - P^S\right\Vert^2 - \left\Vert A^T - N^S\right\Vert^2 +m \right) $}
+\end{equation}
+By using the baseline model we are able to project both shape and text into the embedding space in a meaningful way by reducing to triplet loss (\ref{eqn:1}). As the triplet loss contains always parts of different modalities it enforces to learn a cross-modal connection for the instances. For a further improvement of the embedding space a more sophisticated architectures is presented in the following.
+
+\subsection{Autoencoder}
+The network architectures stays the same as in our baseline mapping into the embedding space $\mathbb{R}^{128}$ with a LSTM for the text, PointNet++ for the shapes and evaluating it by a triplet loss. Additionally, we add a text and shape decoder into our pipeline which project the embeddings again up into a higher dimensional space. The new setting is depicted in \autoref{fig:autoencoder}.
+\begin{figure}[t]%[!htbp]
+	\centering
+	\includegraphics[width=0.8\linewidth]{fig4.pdf}
+	\caption[]{The autoencoder structure of our network consisting two encoders and two decoders}
+	\label{fig:autoencoder}
+\end{figure}
+The shape decoder is a standard multilayer perceptron (MLP) projecting both shape and text embeddings up into a space of $\mathbb{R}^{1024}$. The up-projected embeddings are compared to an intermediate layer of PointNet++ with the size dimension using the L1-norm. The text decoder is similar to the encoder a two layer LSTM which is initialized with the embedding vector as hidden state. Therefore, the LSTM is using the embeddings as context and is trained by using teacher forcing. That is a well-known method to stable and fast train a recurrent neural network where at each time step the ground truth is feed again into the network instead of using the output of the previous time step.
+
+One important aspect of our network for better capturing the cross-modality is the crossed up-projection of the embedding vectors. So additionally to capturing the cross-modal relations with the triplet loss, a text embedding is used to create a shape of the same instance and a shape embedding is used to create a text description of an instance. This approach extends the standard autoencoder structure of projection down into a bottle neck layer and afterwards projection up into the original space and trying to minimize the reconstruction error.
+
+\section{Results}
+In this section we are presenting the qualitative and quantitative results of our network in both settings. For qualitative evaluation we implemented a retrieval function, were the user inputs a natural language text query and the database is searched for the 5 best retrieval. In that process, the network performs a forward path on the input sentence in searches in the embedding space for the 5 nearest neighboring shapes. Some example results for the retrieval are shown in \autoref{fig:retrieval}. Our network can differentiate the input sentence for the right object and also works on attribute level, as can be see by comparing the search query for circle and glass top table.
+\begin{figure}[ht]%[!htbp]
+	\centering
+	\includegraphics[width=1\linewidth]{fig5.pdf}
+	\caption[]{Retrieval results for five different text queries}
+	\label{fig:retrieval}
+\end{figure}
+For quantitative evaluation we use the recall rate @ k and the normalized discounted cumulative gain (NDCG) @ k \cite{J_rvelin2002ndcg}. The recall rate rr@5 means, that for a input text the database is searched for the five nearest neighbors and if among those five the corresponding ground truth shape is obtained, the retrieval was successful. NDCG involves a discount function over the rank while RR@k uniformly weight all positions. 
+\begin{table}[t]
+	\resizebox{\linewidth}{!}{\begin{tabular}{c|c|c|c|c|c}
+		\textbf{Model} & \textbf{RR@1} & \textbf{RR@5} & \textbf{RR@10} & \textbf{NDCG@5} & \textbf{NDCG@10}\\ \hline \hline
+		Random & 0.07 & 0.36 & 0.57 & 0.21 & 0.27 \\ \hline
+		Baseline & 1.3 & 6.2 & 11.0 & 3.7 & 5.5 \\ \hline
+		Positive Loss & 1.0 & 4.5 & 8.9 & 2.8 & 4.0 \\ \hline
+		Class Loss & 1.1 & 6.2 & 11.1 & 3.6 & 5.3 \\ \hline
+		Autoencoder & \textbf{1.5} & \textbf{7.5} & \textbf{13.0} & \textbf{4.6} & \textbf{6.1} \\ \hline	
+	\end{tabular}}
+	\label{tab:tab1}
+	\caption{Comparison of the different models using the recall rate @ k and normalized discounted cumulative gain
+@ k
+	 }
+\end{table}
+
+\section{Conclusion}
+
+{\small
+\bibliographystyle{ieee_fullname}
+\bibliography{3d_retrieval}
+}
+
+\end{document}
