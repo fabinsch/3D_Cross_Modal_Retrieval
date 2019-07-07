@@ -158,7 +158,7 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
-        return 2*(loss_shape_dec+loss_shape_dec)
+        return 2*(loss_shape_dec+loss_shape_dec)*100
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
         gt = sample_batched[2]
@@ -174,7 +174,7 @@ class SiameseNet(nn.Module):
         loss = nn.functional.cross_entropy(shape_dec_txt, gt.long()) + nn.functional.cross_entropy(desc_dec_txt, gt.long())
         
 
-        return loss    
+        return loss
 
 class TripletLoss(nn.Module):
     """
@@ -461,11 +461,11 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         loss_epoch_shape = 0.0
         val_loss_epoch = 0.0
         if (epoch%50 == 0 and epoch >0):
-            lr_adapted1 = lr/2
+            lr_adapted1 = 5e-4
             optimizer = optim.Adam(net.parameters(), lr_adapted1)
             
         if (epoch%90 == 0 and epoch >0):
-            lr_adapted2 = lr*0.1
+            lr_adapted2 = 1e-5
             optimizer = optim.Adam(net.parameters(), lr_adapted2)
         
         #d_train_triplets = generate_train_triplets(data_dir_train)
@@ -506,7 +506,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             if epoch >= 0:
             
                 loss_shape = net.get_shape_loss(x_intermediate, shape_dec_pc, desc_dec_pc)
-                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt) * 1
+                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt)
                 loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_txt + loss_shape
          
             else:
@@ -529,10 +529,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             # print statistics
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
-            running_txt_loss += 0.1*loss_txt.detach().item()
-            loss_epoch_txt += 0.1*loss_txt.detach().item()
-            running_shape_loss +=1 *loss_shape.detach().item()
-            loss_epoch_shape  +=1*loss_shape.detach().item()
+            running_txt_loss += loss_txt.detach().item()
+            loss_epoch_txt += loss_txt.detach().item()
+            running_shape_loss += loss_shape.detach().item()
+            loss_epoch_shape  += loss_shape.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 #####################
@@ -598,7 +598,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
 
                 if epoch >= 0:
                     loss_shape = net.get_shape_loss(x_intermediate, shape_dec_pc, desc_dec_pc)
-                    loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt) * 1
+                    loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
                     #print('val_loss_txt:', loss_txt)
                     loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)+loss_txt +1*loss_shape
                     
