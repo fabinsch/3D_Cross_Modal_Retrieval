@@ -36,6 +36,7 @@ def retrieve_images(y_pred, ids, data_dir_val, class_dir, num_KNN, max_show, shu
         axes[i,0].set_yticks([])
         for j in range(num_KNN):
             ID = ids[y_pred[randomized[i]][j]]
+            print(j+1, 'NN ', ID)
             class_name = data_class[ID]
             name = str('images/' + class_name + '/' + ID + '/models/model_normalized.png')
             img = Image.open(name)

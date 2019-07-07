@@ -364,7 +364,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             optimizer = optim.Adam(net.parameters(), lr_adapted1)
             
         if (epoch%90 == 0 and epoch >0):
-            lr_adapted2 = lr*0.1
+            lr_adapted2 = lr/4
             optimizer = optim.Adam(net.parameters(), lr_adapted2)
 
         train_data = pointcloudDataset(json_data=data_dir_train, root_dir=working_dir,
