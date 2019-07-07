@@ -1,0 +1,66 @@
+##### erfolglos ###
+autoencoder_test50epochs_after3epoch
+war der erste Versuche mit dem autoencoder, gewichtung 0.3*text_loss und 10*shape_loss, nach 3 epochen draufgeschaltet , ziemlich schlechte lernkurven, abbruch nach 22 epochs
+
+autoencoder_50ep_newWeight
+zweiter versuch, gewichtung 0.05 text_loss and 3*shape_loss, 50 epochs
+
+smaller_autoencoder_50ep_newWeight.pt
+versuch mit kleinerem datenset, 200per classe und 1000 points per sample
+
+smaller_autoencoder_100more_ep_newWeight, gleiche gewichte (smaller_autoencoder_50ep_newWeight.pt)
+weitere 60 epochs auf die ersten 50 epochs drauf - autoencoder schreint nicht richtig zu funktionieren
+
+#################
+
+
+
+autoencoder_100epochs_BS8_1500p
+kompletter autoencoder mit text und shape loss, shape doppelt gewichtet, trainiert für 68 epochs, trainiert mit 1500p per sample und 1000 objects per class -> gesaved als autoencoder_100epochs_BS8_1500p_COPY
+nochmal ein run auf denselben parametern mit kleiner LR
+
+autoencoder_100epochs_BS8_1500p
+20 epochs mehr LR 1e-4
+
+
+###################
+
+
+
+_allClasses1000obj_5000points_100epochs 
+training auf 1000 samplen per class mit 2500 points für 100 epochs, erster langer run
+
+allClasses500_300epochs_m1_LR1e5
+training auf 500 samplen per class, 1000 sample points per class
+
+##### evaluation on chairs and tables ######
+
+1) autoencoder_150epochs_BS8_CT
+
+use autoencoder structure, shape_loss*2, BS8 and 150 epochs with LR schedule, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables
+Abbruch nach 98 epochs
+
+
+2) autoencoder2_100epochs_BS16_CT_Gewichtung*10
+
+use autoencoder structure, shape_loss*2*10, text_loss*10, BS16 and 100 epochs with LR schedule, LR_init = 1e-3, margin= 0.5, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables -> text loss dominates
+retrieval performance measures, Abbruch nach 16 epochs:
+rr@1 0.0
+rr@5 1.0
+rr@10 2.0
+NDCG@5 0.0
+NDCG@10 1.0
+
+3) autoencoder3_100epochs_BS16_CT_Gewichtung_text*1_shape*20
+
+use autoencoder structure, shape_loss*2*10, text_loss*1, BS16 and 100 epochs with LR schedule, LR_init = 1e-3, margin= 0.5, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables -> abbruch nach 30 epochs
+
+
+4) autoencoder4_100epochs_BS16_CT_Gewichtung_text*1_shape*200_LR1e-2
+bigger LR -> fail
+
+5) autoencoder5_100epochs_BS16_CT_Gewichtung_text*1_shape*200_BS32
+BS 32 und LR 2e-3
+
+6) testrrr
+BS64, LR2e-3, dann >50 LR4e-5, >90 1e-4
