@@ -64,3 +64,26 @@ BS 32 und LR 2e-3
 
 6) testrrr
 BS64, LR2e-3, dann >50 LR4e-5, >90 1e-4
+
+7) autoencoder_final.pt
+BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 120 epochs
+rr@1 1.087
+rr@5 5.1359
+rr@10 9.3071
+NDCG@5 3.0962
+NDCG@10 4.4215
+
+8)finetuning 7) mit weight on shapes 1
+rr@1 1.4538
+rr@5 4.9592
+rr@10 9.5924
+NDCG@5 3.187
+NDCG@10 4.6638
+
+############### Baseline 
+BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 100 epochs
+RR@1: 1.141
+RR@5: 5.992
+RR@10: 10.87
+NDCG@5: 3.509
+NDCG@10: 5.059
