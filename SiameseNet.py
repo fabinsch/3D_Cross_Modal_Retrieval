@@ -82,6 +82,7 @@ class SiameseNet(nn.Module):
 #        ).to(self.device)
         self.seq1 = torch.nn.Sequential(
         torch.nn.Linear(128, 512),
+        nn.Dropout(p=0.5),
         torch.nn.ReLU(),
         torch.nn.Linear(512, 1024)).to(self.device)
 
@@ -158,7 +159,7 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
-        return 2*(loss_shape_dec+loss_shape_dec)*100
+        return 2*(loss_shape_dec+loss_shape_dec)*1
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
         gt = sample_batched[2]
@@ -460,12 +461,14 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
         loss_epoch_txt = 0.0
         loss_epoch_shape = 0.0
         val_loss_epoch = 0.0
+        val_loss_epoch_txt = 0.0
+        val_loss_epoch_shape = 0.0
         if (epoch%50 == 0 and epoch >0):
-            lr_adapted1 = 5e-4
+            lr_adapted1 = lr/2
             optimizer = optim.Adam(net.parameters(), lr_adapted1)
             
         if (epoch%90 == 0 and epoch >0):
-            lr_adapted2 = 1e-5
+            lr_adapted2 = lr/4
             optimizer = optim.Adam(net.parameters(), lr_adapted2)
         
         #d_train_triplets = generate_train_triplets(data_dir_train)
@@ -600,6 +603,8 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                     loss_shape = net.get_shape_loss(x_intermediate, shape_dec_pc, desc_dec_pc)
                     loss_txt = net.get_txt_loss(data, shape_dec_txt, desc_dec_txt)
                     #print('val_loss_txt:', loss_txt)
+                    val_loss_epoch_shape += loss_shape.item()
+                    val_loss_epoch_txt += loss_txt.item()
                     loss_val = criterion(output_shape, output_desc, batch_size, margin, hard_neg_ind)+loss_txt +1*loss_shape
                     
                 else:
@@ -613,10 +618,16 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
                 den = 0
             else:
                 den = (len(val_data) % batch_size)
-            
+            print("Validation Loss:", val_loss_epoch / (len(val_data) - den))   
+            writer.add_scalar('Shape Val loss per epoch', val_loss_epoch_shape / (len(val_data) - den),
+                              epoch)
+            writer.add_scalar('Text Val loss per epoch', val_loss_epoch_txt / (len(val_data) - den),
+                              epoch)
+
+            print("Text Validation Loss:", val_loss_epoch_txt / (len(val_data) - den))
+            print("Shape Validation Loss:", val_loss_epoch_shape / (len(val_data) - den))
             writer.add_scalar('Val loss per epoch', val_loss_epoch / (len(val_data) - den),
                               epoch)
-            print("Validation Loss:", val_loss_epoch / (len(val_data) - den))
 
 
 
