@@ -80,6 +80,9 @@ rr@10 11.0598
 NDCG@5 3.7456
 NDCG@10 5.3645
 
+9) further finetuning 8 with lr 2e-3
+seemed nice scores to be evaluated
+
 ############### Baseline CT
 BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 100 epochs
 RR@1: 1.141
