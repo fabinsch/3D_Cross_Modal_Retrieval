@@ -120,6 +120,13 @@ NDCG@10 10.826
 
 AE_100Val_140epochs.pt 
 
+3) weiteres finetuning Nick
+rr@1 3.6406
+rr@5 13.4531
+rr@10 22.6875
+NDCG@5 8.5259
+NDCG@10 11.4905
+
 ############# 100ALL #######
 Baseline: 
 85 epochs, nahe Konvergenz
