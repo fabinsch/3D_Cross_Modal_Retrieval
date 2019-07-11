@@ -82,6 +82,7 @@ class SiameseNet(nn.Module):
 #        ).to(self.device)
         self.seq1 = torch.nn.Sequential(
         torch.nn.Linear(128, 512),
+        nn.Dropout(p=0.5),
         torch.nn.ReLU(),
         torch.nn.Linear(512, 1024)).to(self.device)
 
@@ -105,10 +106,10 @@ class SiameseNet(nn.Module):
 
         # Decode embeddings to shape
         shape_dec_pc = self.seq1(x_shape.squeeze(2))
-        #shape_dec_pc = shape_dec.reshape(batch_size, 3,  self.num_points)
+        #shape_dec_pc = shape_dec.view(batch_size, 3,  self.num_points)
         #desc_dec_pc = 0
         desc_dec_pc = self.seq1(out.reshape(batch_size,128))
-        #desc_dec_pc = desc_dec.reshape(batch_size, 3, self.num_points)
+        #desc_dec_pc = desc_dec.view(batch_size, 3, self.num_points)
         #shape_dec_pc = 0
 
         # Decode embeddings to text
@@ -158,6 +159,10 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
+        l1_regularization, l2_regularization = torch.tensor(0), torch.tensor(0)
+#        for param in net.parameters():
+#            print(param)
+#        
         return 2*(loss_shape_dec+loss_shape_dec)
 
     def get_txt_loss(self, sample_batched, shape_dec_txt, desc_dec_txt):
@@ -506,7 +511,7 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             if epoch >= 0:
             
                 loss_shape = net.get_shape_loss(x_intermediate, shape_dec_pc, desc_dec_pc)
-                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt) * 1
+                loss_txt = net.get_txt_loss(sample_batched, shape_dec_txt, desc_dec_txt) 
                 loss = criterion(x_shape, x_desc, batch_size, margin, hard_neg_ind) + loss_txt + loss_shape
          
             else:
@@ -529,10 +534,10 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
             # print statistics
             running_loss += loss.detach().item()
             loss_epoch += loss.detach().item()
-            running_txt_loss += 0.1*loss_txt.detach().item()
-            loss_epoch_txt += 0.1*loss_txt.detach().item()
-            running_shape_loss +=1 *loss_shape.detach().item()
-            loss_epoch_shape  +=1*loss_shape.detach().item()
+            running_txt_loss += loss_txt.detach().item()
+            loss_epoch_txt += loss_txt.detach().item()
+            running_shape_loss +=loss_shape.detach().item()
+            loss_epoch_shape  +=loss_shape.detach().item()
 
             if i_batch % print_batch == 0 and i_batch != 0:  # print every print_batch mini-batches
                 #####################
@@ -904,7 +909,7 @@ if __name__ == '__main__':
     num_points = 1000
     net = SiameseNet(batch_size, num_points)
     suffix = '_test' # comment in if not coming from generating the dataset
-    path_to_params = "models/autoencoder.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
+    path_to_params = "models/testttt.pt" # if file does not exist or is empty it starts from untrained and later saves to the file
     
     # shift to GPU if available
     
@@ -930,15 +935,15 @@ if __name__ == '__main__':
         
     #training parameters
     
-    writer_suffix = 'understanding_HN1'
+    writer_suffix = 'testing'
     margin = 0.5
     num_epochs = 1
     print_batch = 1
     lr = 1e-3
     k=5
     
-    #net = train(net, num_epochs, margin, lr, print_batch,
-    #                       data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
+    net = train(net, num_epochs, margin, lr, print_batch,
+                           data_dir_train, data_dir_val, writer_suffix, path_to_params, working_dir, class_dir)
     
     # Validation
     margin = 0.5
