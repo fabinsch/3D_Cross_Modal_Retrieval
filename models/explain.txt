@@ -87,3 +87,19 @@ RR@5: 5.992
 RR@10: 10.87
 NDCG@5: 3.509
 NDCG@10: 5.059
+
+
+################### Evaluation on 100Val #############
+1) AE_100Val_BS64_100epochs
+auto encoder, LR 5e-4 Gewichtung shape = 2, text = 1, 64 BS, 100 epochs, linear upsamling und L1 distance
+
+retrieval performance measures:
+rr@1 3.125
+rr@5 12.5
+rr@10 21.4219
+NDCG@5 7.8088
+NDCG@10 10.6616
+
+AE_100Val_BS64_100epochs_COPY.pt 
+
+2) AE_100Val_BS64_100epochs_50more
