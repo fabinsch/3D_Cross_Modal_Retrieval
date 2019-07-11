@@ -74,19 +74,28 @@ NDCG@5 3.0962
 NDCG@10 4.4215
 
 8)finetuning 7) mit weight on shapes 1
-rr@1 1.4538
-rr@5 4.9592
-rr@10 9.5924
-NDCG@5 3.187
-NDCG@10 4.6638
+rr@1 1.5625
+rr@5 6.0054
+rr@10 11.0598
+NDCG@5 3.7456
+NDCG@10 5.3645
 
-############### Baseline 
+9) further finetuning 8 with lr 2e-3
+seemed nice scores to be evaluated
+rr@1 1.8207
+rr@5 7.038
+rr@10 12.4185
+NDCG@5 4.4036
+NDCG@10 6.1233
+
+############### Baseline CT
 BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 100 epochs
 RR@1: 1.141
 RR@5: 5.992
 RR@10: 10.87
 NDCG@5: 3.509
 NDCG@10: 5.059
+
 
 
 ################### Evaluation on 100Val #############
@@ -102,4 +111,21 @@ NDCG@10 10.6616
 
 AE_100Val_BS64_100epochs_COPY.pt 
 
-2) AE_100Val_BS64_100epochs_50more
+2) AE_100Val_BS64_100epochs_50more -> 40 more
+rr@1 3.2188
+rr@5 12.5156
+rr@10 21.7812
+NDCG@5 7.8471
+NDCG@10 10.826
+
+AE_100Val_140epochs.pt 
+
+############# 100ALL #######
+Baseline: 
+85 epochs, nahe Konvergenz
+rr@1 3.125
+rr@5 11.9844
+rr@10 20.7188
+NDCG@5 7.4964
+NDCG@10 10.2867
+
