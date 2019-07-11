@@ -1,0 +1,138 @@
+##### erfolglos ###
+autoencoder_test50epochs_after3epoch
+war der erste Versuche mit dem autoencoder, gewichtung 0.3*text_loss und 10*shape_loss, nach 3 epochen draufgeschaltet , ziemlich schlechte lernkurven, abbruch nach 22 epochs
+
+autoencoder_50ep_newWeight
+zweiter versuch, gewichtung 0.05 text_loss and 3*shape_loss, 50 epochs
+
+smaller_autoencoder_50ep_newWeight.pt
+versuch mit kleinerem datenset, 200per classe und 1000 points per sample
+
+smaller_autoencoder_100more_ep_newWeight, gleiche gewichte (smaller_autoencoder_50ep_newWeight.pt)
+weitere 60 epochs auf die ersten 50 epochs drauf - autoencoder schreint nicht richtig zu funktionieren
+
+#################
+
+
+
+autoencoder_100epochs_BS8_1500p
+kompletter autoencoder mit text und shape loss, shape doppelt gewichtet, trainiert für 68 epochs, trainiert mit 1500p per sample und 1000 objects per class -> gesaved als autoencoder_100epochs_BS8_1500p_COPY
+nochmal ein run auf denselben parametern mit kleiner LR
+
+autoencoder_100epochs_BS8_1500p
+20 epochs mehr LR 1e-4
+
+
+###################
+
+
+
+_allClasses1000obj_5000points_100epochs 
+training auf 1000 samplen per class mit 2500 points für 100 epochs, erster langer run
+
+allClasses500_300epochs_m1_LR1e5
+training auf 500 samplen per class, 1000 sample points per class
+
+##### evaluation on chairs and tables ######
+
+1) autoencoder_150epochs_BS8_CT
+
+use autoencoder structure, shape_loss*2, BS8 and 150 epochs with LR schedule, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables
+Abbruch nach 98 epochs
+
+
+2) autoencoder2_100epochs_BS16_CT_Gewichtung*10
+
+use autoencoder structure, shape_loss*2*10, text_loss*10, BS16 and 100 epochs with LR schedule, LR_init = 1e-3, margin= 0.5, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables -> text loss dominates
+retrieval performance measures, Abbruch nach 16 epochs:
+rr@1 0.0
+rr@5 1.0
+rr@10 2.0
+NDCG@5 0.0
+NDCG@10 1.0
+
+3) autoencoder3_100epochs_BS16_CT_Gewichtung_text*1_shape*20
+
+use autoencoder structure, shape_loss*2*10, text_loss*1, BS16 and 100 epochs with LR schedule, LR_init = 1e-3, margin= 0.5, after 50 epochs LR*0.5 and after 90 epochs LR*0.1, just chairs and tables -> abbruch nach 30 epochs
+
+
+4) autoencoder4_100epochs_BS16_CT_Gewichtung_text*1_shape*200_LR1e-2
+bigger LR -> fail
+
+5) autoencoder5_100epochs_BS16_CT_Gewichtung_text*1_shape*200_BS32
+BS 32 und LR 2e-3
+
+6) testrrr
+BS64, LR2e-3, dann >50 LR4e-5, >90 1e-4
+
+7) autoencoder_final.pt
+BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 120 epochs
+rr@1 1.087
+rr@5 5.1359
+rr@10 9.3071
+NDCG@5 3.0962
+NDCG@10 4.4215
+
+8)finetuning 7) mit weight on shapes 1
+rr@1 1.5625
+rr@5 6.0054
+rr@10 11.0598
+NDCG@5 3.7456
+NDCG@10 5.3645
+
+9) further finetuning 8 with lr 2e-3
+seemed nice scores to be evaluated
+rr@1 1.8207
+rr@5 7.038
+rr@10 12.4185
+NDCG@5 4.4036
+NDCG@10 6.1233
+
+############### Baseline CT
+BS64, LR5e-4 dann LR/2 (50), dann LR/4 (90) bis 100 epochs
+RR@1: 1.141
+RR@5: 5.992
+RR@10: 10.87
+NDCG@5: 3.509
+NDCG@10: 5.059
+
+
+
+################### Evaluation on 100Val #############
+1) AE_100Val_BS64_100epochs
+auto encoder, LR 5e-4 Gewichtung shape = 2, text = 1, 64 BS, 100 epochs, linear upsamling und L1 distance
+
+retrieval performance measures:
+rr@1 3.125
+rr@5 12.5
+rr@10 21.4219
+NDCG@5 7.8088
+NDCG@10 10.6616
+
+AE_100Val_BS64_100epochs_COPY.pt 
+
+2) AE_100Val_BS64_100epochs_50more -> 40 more
+rr@1 3.2188
+rr@5 12.5156
+rr@10 21.7812
+NDCG@5 7.8471
+NDCG@10 10.826
+
+AE_100Val_140epochs.pt 
+
+3) weiteres finetuning Nick
+rr@1 3.6406
+rr@5 13.4531
+rr@10 22.6875
+NDCG@5 8.5259
+NDCG@10 11.4905
+
+############# 100ALL #######
+Baseline: 
+85 epochs, nahe Konvergenz
+rr@1 3.125
+rr@5 11.9844
+rr@10 20.7188
+NDCG@5 7.4964
+NDCG@10 10.2867
+
