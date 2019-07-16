@@ -1,4 +1,4 @@
-import torch
+obimport torch
 import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
@@ -26,36 +26,7 @@ from PIL import Image
 
 import torch.optim as optim
 import torchvision.transforms as transforms
-#from chamfer_distance import ChamferDistance
 
-def plot_grad_flow(named_parameters):
-    '''Plots the gradients flowing through different layers in the net during training.
-    Can be used for checking for possible gradient vanishing / exploding problems.
-    
-    Usage: Plug this function in Trainer class after loss.backwards() as 
-    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
-    ave_grads = []
-    max_grads= []
-    layers = []
-    for n, p in named_parameters:
-        if(p.requires_grad) and ("bias" not in n):
-            layers.append(n)
-            ave_grads.append(p.grad.abs().mean())
-            max_grads.append(p.grad.abs().max())
-    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
-    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
-    plt.hlines(0, 0, len(ave_grads)+1, lw=2, color="k" )
-    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
-    plt.xlim(left=0, right=len(ave_grads))
-    plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
-    plt.xlabel("Layers")
-    plt.ylabel("average gradient")
-    plt.title("Gradient flow")
-    plt.grid(True)
-    plt.legend([Line2D([0], [0], color="c", lw=4),
-                Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
-    plt.show()
 
 class SiameseNet(nn.Module):
     def __init__(self, batch_size, num_points):
@@ -107,10 +78,8 @@ class SiameseNet(nn.Module):
         # Decode embeddings to shape
         shape_dec_pc = self.seq1(x_shape.squeeze(2))
         #shape_dec_pc = shape_dec.view(batch_size, 3,  self.num_points)
-        #desc_dec_pc = 0
         desc_dec_pc = self.seq1(out.reshape(batch_size,128))
         #desc_dec_pc = desc_dec.view(batch_size, 3, self.num_points)
-        #shape_dec_pc = 0
 
         # Decode embeddings to text
         # fc to go from 128
@@ -159,7 +128,7 @@ class SiameseNet(nn.Module):
             loss = nn.MSELoss()
         loss_shape_dec = loss(shape_dec_pc, x_intermediate)
         loss_text_dec = loss(desc_dec_pc, x_intermediate) 
-        l1_regularization, l2_regularization = torch.tensor(0), torch.tensor(0)
+        l1_regularization, l2_regularization = torch.tensor(0), torch.tensor(0) # TODO  regularization
 #        for param in net.parameters():
 #            print(param)
 #        
@@ -361,12 +330,7 @@ def _pairwise_distances(embeddings, squared=False):
     return distances
 
 def _get_anchor_negative_triplet_mask(pairwise_dist):
-    """Return a 2D mask where mask[a, n] is True iff a and n have distinct labels.
-    Args:
-        labels: tf.int32 `Tensor` with shape [batch_size]
-    Returns:
-        mask: tf.bool `Tensor` with shape [batch_size, batch_size]
-    """
+
     #TODO integrate random suffling - all indices except one set to 1
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     mask = torch.ones(pairwise_dist.shape).to(device)
@@ -386,40 +350,12 @@ def _get_anchor_negative_triplet_mask(pairwise_dist):
     return mask
 
 def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
-    """Build the triplet loss over a batch of embeddings.
 
-    For each anchor, we get the hardest positive and hardest negative to form a triplet.
-
-    Args:
-        labels: labels of the batch, of size (batch_size,)
-        embeddings: tensor of shape (batch_size, embed_dim)
-        margin: margin for triplet loss
-        squared: Boolean. If true, output is the pairwise squared euclidean distance matrix.
-                 If false, output is the pairwise euclidean distance matrix.
-
-    Returns:
-        triplet_loss: scalar tensor containing the triplet loss
-    """
     device = torch.device("cuda:0" if torch.cuda.torch.cuda.is_available() else "cpu")
     # Get the pairwise distance matrix
     pairwise_dist = _pairwise_distances(embeddings, squared=squared)
-
-    # For each anchor, get the hardest positive ---- not applicable in our current implementation
-    # First, we need to get a mask for every valid positive (they should have same label)
-    #mask_anchor_positive = _get_anchor_positive_triplet_mask(labels)
-    #mask_anchor_positive = tf.to_float(mask_anchor_positive)
-
-    # We put to 0 any element where (a, p) is not valid (valid if a != p and label(a) == label(p))
-    #anchor_positive_dist = tf.multiply(mask_anchor_positive, pairwise_dist)
-
-    # shape (batch_size, 1)
-    #hardest_positive_dist = tf.reduce_max(anchor_positive_dist, axis=1, keepdims=True)
-
-    # For each anchor, get the hardest negative
-    # First, we need to get a mask for every valid negative (they should have different labels) - 0 for valid negativ
     mask_anchor_negative = _get_anchor_negative_triplet_mask(pairwise_dist)
     
-
     # We add the maximum value in each row to the invalid negatives (to be able to apply min)
     max_anchor_negative_dist, _ = torch.max(pairwise_dist, dim=1, keepdim=True)
     
@@ -431,13 +367,6 @@ def batch_hard_triplet_loss(embeddings, margin, squared=False, rand=False):
 
     # shape (batch_size,)
     hardest_negative_dist, hardest_negative_ind  = torch.min(anchor_negative_dist, dim=1, keepdim=True)
-
-    # Combine biggest d(a, p) and smallest d(a, n) into final triplet loss
-    #triplet_loss = tf.maximum(hardest_positive_dist - hardest_negative_dist + margin, 0.0)
-
-    # Get final mean triplet loss
-    #triplet_loss = tf.reduce_mean(triplet_loss)
-
     return (hardest_negative_ind)
 
 
@@ -448,9 +377,6 @@ def train(net, num_epochs, margin, lr, print_batch, data_dir_train, data_dir_val
     optimizer = optim.Adam(net.parameters(), lr)
     #criterion = TripletLoss(margin=margin)
     criterion = TripletLoss_hard_negative(margin=margin)
-    
-  
-
     batch_size = net.batch_size
     path_to_hidden = str(path_to_params[:-3] + '_hidden.pt')
     if (os.path.isfile(path_to_hidden) == False):
