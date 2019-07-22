@@ -405,7 +405,7 @@ def val(net, margin, data_dir_val, writer_suffix, working_dir, class_dir, k, ima
     #d_val_triplets = generate_val_triplets(data_dir_val)
     batch_size = net.batch_size
     writer = SummaryWriter(comment=writer_suffix)
-    criterion = TripletLoss(margin=margin)
+    #criterion = TripletLoss(margin=margin)
 #    val_data = pointcloudDataset(d_data=d_val_triplets, json_data=data_dir_val, root_dir=working_dir, mode='val')
     val_data = pointcloudDataset(json_data=data_dir_val, root_dir=working_dir, mode='val')
     valloader = DataLoader(val_data, batch_size=batch_size,
@@ -577,7 +577,7 @@ def retrieval(net, data_dir_val, working_dir,print_nn=False):
 
 def test(net, margin, data_dir_val, working_dir):
     batch_size = net.batch_size
-    criterion = TripletLoss(margin=margin)
+    #criterion = TripletLoss(margin=margin)
     net.eval()
     with torch.no_grad():
         shape = np.zeros((batch_size, 128, 1))
