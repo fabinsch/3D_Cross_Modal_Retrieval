@@ -27,35 +27,6 @@ from PIL import Image
 import torch.optim as optim
 import torchvision.transforms as transforms
 
-#
-def plot_grad_flow(named_parameters):
-    '''Plots the gradients flowing through different layers in the net during training.
-    Can be used for checking for possible gradient vanishing / exploding problems.
-    
-    Usage: Plug this function in Trainer class after loss.backwards() as 
-    "plot_grad_flow(self.model.named_parameters())" to visualize the gradient flow'''
-    ave_grads = []
-    max_grads= []
-    layers = []
-    for n, p in named_parameters:
-        if(p.requires_grad) and ("bias" not in n):
-            layers.append(n)
-            ave_grads.append(p.grad.abs().mean())
-            max_grads.append(p.grad.abs().max())
-    plt.bar(np.arange(len(max_grads)), max_grads, alpha=0.1, lw=1, color="c")
-    plt.bar(np.arange(len(max_grads)), ave_grads, alpha=0.1, lw=1, color="b")
-    plt.hlines(0, 0, len(ave_grads)+1, lw=2, color="k" )
-    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
-    plt.xlim(left=0, right=len(ave_grads))
-    plt.ylim(bottom = -0.001, top=0.02) # zoom in on the lower gradient regions
-    plt.xlabel("Layers")
-    plt.ylabel("average gradient")
-    plt.title("Gradient flow")
-    plt.grid(True)
-    plt.legend([Line2D([0], [0], color="c", lw=4),
-                Line2D([0], [0], color="b", lw=4),
-                Line2D([0], [0], color="k", lw=4)], ['max-gradient', 'mean-gradient', 'zero-gradient'])
-    plt.show()
 
 class SiameseNet(nn.Module):
     def __init__(self, batch_size):
@@ -82,37 +53,6 @@ class SiameseNet(nn.Module):
         #print('fp_d:', t_fp_desc)
 
         return x_shape, out.reshape(batch_size,128,1)
-    
-class TripletLoss(nn.Module):
-    """
-    Triplet loss
-    Takes embeddings of an anchor sample, a positive sample and a negative sample
-    """
-
-    def __init__(self, margin):
-        super(TripletLoss, self).__init__()
-        self.margin = margin
-
-    def forward(self, x_shape, x_desc, batch_size, margin):
-        diff_pos_1 = x_shape[0:batch_size:2] - x_desc[0:batch_size:2]
-        diff_neg_1 = x_shape[0:batch_size:2] - x_desc[1:batch_size:2]
-        pos_red_1 = (diff_pos_1 ** 2).sum(1)
-        neg_red_1 = (diff_neg_1 ** 2).sum(1)
-        diff_pos_2 = x_desc[0:batch_size:2] - x_shape[0:batch_size:2]
-        diff_neg_2 = x_desc[0:batch_size:2] - x_shape[1:batch_size:2]
-        pos_red_2 = (diff_pos_2 ** 2).sum(1)
-        neg_red_2 = (diff_neg_2 ** 2).sum(1)
-        '''diff_pos_3 = x_shape[1:batch_size:2] - x_desc[1:batch_size:2]
-        diff_neg_3 = x_shape[1:batch_size:2] - x_desc[0:batch_size:2]
-        pos_red_3 = (diff_pos_3 ** 2).sum(1)
-        neg_red_3 = (diff_neg_3 ** 2).sum(1)
-        diff_pos_4 = x_desc[1:batch_size:2] - x_shape[1:batch_size:2]
-        diff_neg_4 = x_desc[1:batch_size:2] - x_shape[0:batch_size:2]
-        pos_red_4 = (diff_pos_4 ** 2).sum(1)
-        neg_red_4 = (diff_neg_4 ** 2).sum(1)'''
-        loss = F.relu(pos_red_1 - neg_red_1 + margin).sum(0) + F.relu(pos_red_2 - neg_red_2 + margin).sum(0)# +F.relu(pos_red_3 - neg_red_3 + margin).sum(0) +F.relu(pos_red_4 - neg_red_4 + margin).sum(0)
-        return loss
-
     
 class TripletLoss_hard_negative(nn.Module):
     """
